@@ -1,61 +1,75 @@
 import BigNumber from 'bignumber.js'
-import { add, curry, flatten, lift, pathOr, reduce } from 'ramda'
+import { add, curry, flatten, lift, map, pathOr, reduce, reject } from 'ramda'
 
-import { Exchange, Remote } from 'blockchain-wallet-v4/src'
-import { formatFiat } from 'blockchain-wallet-v4/src/exchange/currency'
-import { INVALID_COIN_TYPE } from 'blockchain-wallet-v4/src/model'
+import { Exchange, Remote } from '@core'
 import {
+  BSBalancesType,
+  BSBalanceType,
+  CoinfigType,
   ExtractSuccess,
   InterestAccountBalanceType,
+  RatesType,
   RemoteDataType,
-  SBBalancesType,
-  SBBalanceType,
-  WalletCurrencyType,
+  SwapOrderType,
   WalletFiatEnum,
   WalletFiatType
-} from 'blockchain-wallet-v4/src/types'
-import { createDeepEqualSelector } from 'blockchain-wallet-v4/src/utils'
+} from '@core/types'
+import { createDeepEqualSelector } from '@core/utils'
 import { selectors } from 'data'
+import { DEFAULT_BS_BALANCE } from 'data/components/buySell/model'
 import { convertBaseToStandard } from 'data/components/exchange/services'
-import { DEFAULT_INTEREST_BALANCE } from 'data/components/interest/model'
-import { DEFAULT_SB_BALANCE } from 'data/components/simpleBuy/model'
+import { getOutputFromPair } from 'data/components/swap/model'
 import { RootState } from 'data/rootReducer'
 
 import {
-  getErc20Balance as getErc20NonCustodialBalance,
+  getErc20NonCustodialBalance,
   getEthBalance as getEthNonCustodialBalance,
   getXlmBalance as getXlmNonCustodialBalance
 } from './nonCustodial/selectors'
+
+export const getCoinCustodialBalance = (
+  coin: string
+): ((state: RootState) => RemoteDataType<string, number>) =>
+  createDeepEqualSelector(
+    [
+      selectors.components.buySell.getBSBalances,
+      selectors.components.interest.getInterestAccountBalance
+    ],
+    (
+      sbBalancesR: RemoteDataType<string, BSBalancesType>,
+      interestAccountBalanceR: RemoteDataType<string, InterestAccountBalanceType>
+    ) => {
+      const sbCoinBalance = sbBalancesR.getOrElse({
+        [coin]: DEFAULT_BS_BALANCE
+      })[coin]
+      const interestCoinBalance = interestAccountBalanceR.getOrElse({
+        [coin]: { balance: '0' } as InterestAccountBalanceType[typeof coin]
+      })[coin]
+      const sbBalance = sbCoinBalance ? sbCoinBalance.available : '0'
+      const interestBalance = interestCoinBalance ? interestCoinBalance.balance : '0'
+
+      return Remote.of(new BigNumber(sbBalance).plus(new BigNumber(interestBalance)).toNumber())
+    }
+  )
 
 export const getBtcBalance = createDeepEqualSelector(
   [
     selectors.core.wallet.getSpendableContext,
     selectors.core.data.btc.getAddresses,
-    selectors.components.interest.getInterestAccountBalance,
-    selectors.components.simpleBuy.getSBBalances
+    getCoinCustodialBalance('BTC')
   ],
-  (context, addressesR, interestAccountBalanceR, sbBalancesR) => {
+  (context, addressesR, custodialBalanceR) => {
     const contextToBalances = (
       context,
       balances,
-      interestAccountBalance: InterestAccountBalanceType,
-      sbBalances: SBBalancesType
+      custodialBalance: ExtractSuccess<typeof custodialBalanceR>
     ): Array<number> => {
-      const walletBalances: Array<number> = flatten(context).map(a =>
+      const walletBalances: Array<number> = flatten(context).map((a) =>
         pathOr(0, [a, 'final_balance'], balances)
       )
-      const interestBalance = interestAccountBalance.BTC
-        ? parseInt(interestAccountBalance.BTC.balance)
-        : 0
-      const sbBalance = Number(sbBalances.BTC ? sbBalances.BTC.available : 0)
-      return walletBalances.concat(sbBalance).concat(interestBalance)
+      return walletBalances.concat(custodialBalance)
     }
-    const balancesR = lift(contextToBalances)(
-      Remote.of(context),
-      addressesR,
-      interestAccountBalanceR,
-      sbBalancesR
-    )
+    const balancesR = lift(contextToBalances)(Remote.of(context), addressesR, custodialBalanceR)
     return balancesR.map(reduce<number, number>(add, 0))
   }
 )
@@ -64,225 +78,66 @@ export const getBchBalance = createDeepEqualSelector(
   [
     selectors.core.kvStore.bch.getSpendableContext,
     selectors.core.data.bch.getAddresses,
-    selectors.components.interest.getInterestAccountBalance,
-    selectors.components.simpleBuy.getSBBalances
+    getCoinCustodialBalance('BCH')
   ],
-  (context, addressesR, interestAccountBalanceR, sbBalancesR) => {
+  (context, addressesR, custodialBalanceR) => {
     const contextToBalances = (
       context,
       balances,
-      interestAccountBalance: InterestAccountBalanceType,
-      sbBalances: SBBalancesType
+      custodialBalance: ExtractSuccess<typeof custodialBalanceR>
     ) => {
-      const walletBalances: Array<number> = context.map(a =>
+      const walletBalances: Array<number> = context.map((a) =>
         pathOr(0, [a, 'final_balance'], balances)
       )
-      const interestBalance = interestAccountBalance.BCH
-        ? parseInt(interestAccountBalance.BCH.balance)
-        : 0
-      const sbBalance = Number(sbBalances.BCH ? sbBalances.BCH.available : 0)
-      return walletBalances.concat(sbBalance).concat(interestBalance)
+      return walletBalances.concat(custodialBalance)
     }
-    const balancesR = lift(contextToBalances)(
-      Remote.of(context),
-      addressesR,
-      interestAccountBalanceR,
-      sbBalancesR
-    )
+    const balancesR = lift(contextToBalances)(Remote.of(context), addressesR, custodialBalanceR)
     return balancesR.map(reduce<number, number>(add, 0))
   }
 )
 
 export const getEthBalance = createDeepEqualSelector(
-  [
-    getEthNonCustodialBalance,
-    selectors.components.interest.getInterestAccountBalance,
-    selectors.components.simpleBuy.getSBBalances
-  ],
-  (
-    balancesR,
-    interestAccountBalanceR: RemoteDataType<string, InterestAccountBalanceType>,
-    sbBalancesR: RemoteDataType<string, SBBalancesType>
-  ) => {
-    const interestEthBalance = interestAccountBalanceR.getOrElse({
-      ETH: DEFAULT_INTEREST_BALANCE
-    }).ETH
-    const interestBalance = interestEthBalance ? interestEthBalance.balance : 0
-    const sbEthBalance = sbBalancesR.getOrElse({ ETH: DEFAULT_SB_BALANCE }).ETH
-    const sbBalance = sbEthBalance ? sbEthBalance.available : '0'
+  [getEthNonCustodialBalance, getCoinCustodialBalance('ETH')],
+  (balancesR, custodialBalanceR) => {
+    const custodialBalance = custodialBalanceR.getOrElse(0)
 
     return Remote.of(
-      new BigNumber(balancesR.getOrElse(new BigNumber(0)))
-        .plus(new BigNumber(sbBalance))
-        .plus(new BigNumber(interestBalance))
+      new BigNumber(balancesR.getOrElse(new BigNumber(0))).plus(custodialBalance).toNumber()
     )
   }
 )
 
-export const getPaxBalance = createDeepEqualSelector(
-  [
-    getErc20NonCustodialBalance('pax'),
-    selectors.components.interest.getInterestAccountBalance,
-    selectors.components.simpleBuy.getSBBalances
-  ],
-  (
-    balanceR,
-    interestAccountBalanceR: RemoteDataType<string, InterestAccountBalanceType>,
-    sbBalancesR: RemoteDataType<string, SBBalancesType>
-  ) => {
-    const interestPaxBalance = interestAccountBalanceR.getOrElse({
-      PAX: DEFAULT_INTEREST_BALANCE
-    }).PAX
-    const interestBalance = interestPaxBalance
-      ? interestPaxBalance.balance
-      : '0'
-    const sbPaxBalance = sbBalancesR.getOrElse({ PAX: DEFAULT_SB_BALANCE }).PAX
-    const sbBalance = sbPaxBalance ? sbPaxBalance.available : '0'
+export const getErc20Balance = (coin: string) =>
+  createDeepEqualSelector(
+    [getErc20NonCustodialBalance(coin), getCoinCustodialBalance(coin)],
+    (balanceR, custodialBalanceR) => {
+      const custodialBalance = custodialBalanceR.getOrElse(0)
 
-    return Remote.of(
-      new BigNumber(balanceR.getOrElse(0))
-        .plus(new BigNumber(sbBalance))
-        .plus(new BigNumber(interestBalance))
-    )
-  }
-)
-
-export const getYfiBalance = createDeepEqualSelector(
-  [
-    getErc20NonCustodialBalance('yfi'),
-    selectors.components.simpleBuy.getSBBalances
-  ],
-  (balanceR, sbBalancesR: RemoteDataType<string, SBBalancesType>) => {
-    const sbYfiBalance = sbBalancesR.getOrElse({ YFI: DEFAULT_SB_BALANCE }).YFI
-    const sbBalance = sbYfiBalance ? sbYfiBalance.available : '0'
-
-    return Remote.of(
-      new BigNumber(balanceR.getOrElse(0)).plus(new BigNumber(sbBalance))
-    )
-  }
-)
-
-export const getAaveBalance = createDeepEqualSelector(
-  [
-    getErc20NonCustodialBalance('aave'),
-    selectors.components.simpleBuy.getSBBalances
-  ],
-  (balanceR, sbBalancesR: RemoteDataType<string, SBBalancesType>) => {
-    const sbAaveBalance = sbBalancesR.getOrElse({ AAVE: DEFAULT_SB_BALANCE })
-      .AAVE
-    const sbBalance = sbAaveBalance ? sbAaveBalance.available : '0'
-
-    return Remote.of(
-      new BigNumber(balanceR.getOrElse(0)).plus(new BigNumber(sbBalance))
-    )
-  }
-)
-
-export const getDotBalance = createDeepEqualSelector(
-  [selectors.components.simpleBuy.getSBBalances],
-  (sbBalancesR: RemoteDataType<string, SBBalancesType>) => {
-    const sbDotBalance = sbBalancesR.getOrElse({ DOT: DEFAULT_SB_BALANCE }).DOT
-    const sbBalance = sbDotBalance ? sbDotBalance.available : '0'
-
-    return Remote.of(new BigNumber(sbBalance))
-  }
-)
-
-export const getUsdtBalance = createDeepEqualSelector(
-  [
-    getErc20NonCustodialBalance('usdt'),
-    selectors.components.interest.getInterestAccountBalance,
-    selectors.components.simpleBuy.getSBBalances
-  ],
-  (
-    balanceR,
-    interestAccountBalanceR: RemoteDataType<string, InterestAccountBalanceType>,
-    sbBalancesR: RemoteDataType<string, SBBalancesType>
-  ) => {
-    const interestUsdtBalance = interestAccountBalanceR.getOrElse({
-      USDT: DEFAULT_INTEREST_BALANCE
-    }).USDT
-    const interestBalance = interestUsdtBalance
-      ? interestUsdtBalance.balance
-      : '0'
-    const sbUsdtBalance = sbBalancesR.getOrElse({ USDT: DEFAULT_SB_BALANCE })
-      .USDT
-    const sbBalance = sbUsdtBalance ? sbUsdtBalance.available : '0'
-
-    return Remote.of(
-      new BigNumber(balanceR.getOrElse(0))
-        .plus(new BigNumber(sbBalance))
-        .plus(new BigNumber(interestBalance))
-    )
-  }
-)
-
-export const getWdgldBalance = createDeepEqualSelector(
-  [
-    getErc20NonCustodialBalance('wdgld'),
-    selectors.components.simpleBuy.getSBBalances
-  ],
-  (balanceR, sbBalancesR: RemoteDataType<string, SBBalancesType>) => {
-    const sbWdgldBalance = sbBalancesR.getOrElse({ WDGLD: DEFAULT_SB_BALANCE })
-      .WDGLD
-    const sbBalance = sbWdgldBalance ? sbWdgldBalance.available : '0'
-
-    return Remote.of(
-      new BigNumber(balanceR.getOrElse(0)).plus(new BigNumber(sbBalance))
-    )
-  }
-)
+      return Remote.of(
+        new BigNumber(balanceR.getOrElse(new BigNumber(0))).plus(custodialBalance).toNumber()
+      )
+    }
+  )
 
 export const getXlmBalance = createDeepEqualSelector(
-  [
-    getXlmNonCustodialBalance,
-    selectors.components.interest.getInterestAccountBalance,
-    selectors.components.simpleBuy.getSBBalances
-  ],
-  (
-    balanceR,
-    interestAccountBalanceR: RemoteDataType<string, InterestAccountBalanceType>,
-    sbBalancesR: RemoteDataType<string, SBBalancesType>
-  ) => {
-    const interestXlmBalance = interestAccountBalanceR.getOrElse({
-      XLM: DEFAULT_INTEREST_BALANCE
-    }).XLM
-    const interestBalance = interestXlmBalance
-      ? interestXlmBalance.balance
-      : '0'
-    const sbXlmBalance = sbBalancesR.getOrElse({ XLM: DEFAULT_SB_BALANCE }).XLM
-    const sbBalance = sbXlmBalance ? sbXlmBalance.available : '0'
+  [getXlmNonCustodialBalance, getCoinCustodialBalance('XLM')],
+  (balanceR, custodialBalanceR) => {
+    const custodialBalance = custodialBalanceR.getOrElse(0)
 
     return Remote.of(
-      new BigNumber(balanceR.getOrElse(0))
-        .plus(new BigNumber(sbBalance))
-        .plus(new BigNumber(interestBalance))
+      new BigNumber(balanceR.getOrElse(new BigNumber(0))).plus(custodialBalance).toNumber()
     )
-  }
-)
-
-export const getAlgoBalance = createDeepEqualSelector(
-  [selectors.components.simpleBuy.getSBBalances],
-  (sbBalancesR: RemoteDataType<string, SBBalancesType>) => {
-    const sbAlgoBalance = sbBalancesR.getOrElse({ ALGO: DEFAULT_SB_BALANCE })
-      .ALGO
-    const sbBalance = sbAlgoBalance ? sbAlgoBalance.available : '0'
-
-    return Remote.of(new BigNumber(sbBalance))
   }
 )
 
 export const getFiatBalance = curry(
-  (
-    currency: WalletFiatType,
-    state: RootState
-  ): RemoteDataType<string, SBBalanceType['available']> => {
-    const sbBalancesR = selectors.components.simpleBuy.getSBBalances(state)
+  (currency: WalletFiatType, state: RootState): RemoteDataType<string, number> => {
+    const sbBalancesR = selectors.components.buySell.getBSBalances(state)
     const fiatBalance =
       sbBalancesR.getOrElse({
-        [currency]: DEFAULT_SB_BALANCE
+        [currency]: DEFAULT_BS_BALANCE
       })[currency]?.available || '0'
-    return Remote.of(convertBaseToStandard('FIAT', fiatBalance))
+    return Remote.of(new BigNumber(convertBaseToStandard('FIAT', fiatBalance)).toNumber())
   }
 )
 
@@ -290,238 +145,76 @@ export const getWithdrawableFiatBalance = curry(
   (
     currency: WalletFiatType,
     state: RootState
-  ): RemoteDataType<string, SBBalanceType['withdrawable']> => {
-    const sbBalancesR = selectors.components.simpleBuy.getSBBalances(state)
+  ): RemoteDataType<string, BSBalanceType['withdrawable']> => {
+    const sbBalancesR = selectors.components.buySell.getBSBalances(state)
     const fiatBalance =
       sbBalancesR.getOrElse({
-        [currency]: DEFAULT_SB_BALANCE
+        [currency]: DEFAULT_BS_BALANCE
       })[currency]?.withdrawable || '0'
-    return Remote.of(convertBaseToStandard('FIAT', fiatBalance))
+    return Remote.of(fiatBalance)
   }
 )
 
-export const getBtcBalanceInfo = createDeepEqualSelector(
-  [
-    getBtcBalance,
-    selectors.core.data.btc.getRates,
-    selectors.core.settings.getCurrency
-  ],
-  (btcBalanceR, btcRatesR, currencyR) => {
-    const transform = (value, rates, toCurrency) =>
-      Exchange.convertBtcToFiat({
-        value,
-        fromUnit: 'SAT',
-        toCurrency,
-        rates
-      }).value
-    return lift(transform)(btcBalanceR, btcRatesR, currencyR)
+export const getBalanceSelector = (
+  coin: string
+): ((state: RootState) => RemoteDataType<any, number>) => {
+  switch (coin) {
+    case 'BCH':
+      return getBchBalance
+    case 'BTC':
+      return getBtcBalance
+    case 'ETH':
+      return getEthBalance
+    case 'XLM':
+      return getXlmBalance
+    case 'EUR':
+    case 'GBP':
+    case 'USD':
+      return getFiatBalance(coin)
+    default:
+      switch (true) {
+        case selectors.core.data.coins.getCustodialCoins().includes(coin):
+          return getCoinCustodialBalance(coin)
+        default:
+          return getErc20Balance(coin)
+      }
   }
-)
+}
 
-export const getBchBalanceInfo = createDeepEqualSelector(
-  [
-    getBchBalance,
-    selectors.core.data.bch.getRates,
-    selectors.core.settings.getCurrency
-  ],
-  (bchBalanceR, bchRatesR, currencyR) => {
-    const transform = (value, rates, toCurrency) =>
-      Exchange.convertBchToFiat({ value, fromUnit: 'SAT', toCurrency, rates })
-        .value
-    return lift(transform)(bchBalanceR, bchRatesR, currencyR)
-  }
-)
+export const getCoinsBalanceInfo = createDeepEqualSelector(
+  [selectors.core.data.coins.getAllCoins, selectors.core.settings.getCurrency, (state) => state],
+  (coins, currencyR, state) => {
+    const transform = (currency) => {
+      return coins.map((coin) => {
+        const transform2 = (rates, balance) => {
+          if (!rates.price) return 0
+          return Exchange.convertCoinToFiat({ coin, currency, rates, value: balance })
+        }
 
-export const getEthBalanceInfo = createDeepEqualSelector(
-  [
-    getEthBalance,
-    selectors.core.data.eth.getRates,
-    selectors.core.settings.getCurrency
-  ],
-  (ethBalanceR, ethRatesR, currencyR) => {
-    const transform = (value, rates, toCurrency) => {
-      return Exchange.convertEthToFiat({
-        value,
-        fromUnit: 'WEI',
-        toCurrency,
-        rates
-      }).value
+        const balanceR = getBalanceSelector(coin)(state)
+        const ratesR = selectors.core.data.coins.getRates(coin, state)
+        return lift(transform2)(ratesR, balanceR)
+      })
     }
 
-    return lift(transform)(ethBalanceR, ethRatesR, currencyR)
-  }
-)
-
-export const getPaxBalanceInfo = createDeepEqualSelector(
-  [
-    getPaxBalance,
-    state => selectors.core.data.eth.getErc20Rates(state, 'pax'),
-    selectors.core.settings.getCurrency
-  ],
-  (paxBalanceR, erc20RatesR, currencyR) => {
-    const transform = (value, rates, toCurrency) => {
-      return Exchange.convertPaxToFiat({
-        value,
-        fromUnit: 'WEI',
-        toCurrency,
-        rates
-      }).value
-    }
-
-    return lift(transform)(paxBalanceR, erc20RatesR, currencyR)
-  }
-)
-
-export const getAaveBalanceInfo = createDeepEqualSelector(
-  [
-    getAaveBalance,
-    state => selectors.core.data.eth.getErc20Rates(state, 'aave'),
-    selectors.core.settings.getCurrency
-  ],
-  (aaveBalanceR, erc20RatesR, currencyR) => {
-    const transform = (value, rates, toCurrency) => {
-      return Exchange.convertAaveToFiat({
-        value,
-        fromUnit: 'WEI',
-        toCurrency,
-        rates
-      }).value
-    }
-
-    return lift(transform)(aaveBalanceR, erc20RatesR, currencyR)
-  }
-)
-
-export const getYfiBalanceInfo = createDeepEqualSelector(
-  [
-    getYfiBalance,
-    state => selectors.core.data.eth.getErc20Rates(state, 'yfi'),
-    selectors.core.settings.getCurrency
-  ],
-  (yfiBalanceR, erc20RatesR, currencyR) => {
-    const transform = (value, rates, toCurrency) => {
-      return Exchange.convertYfiToFiat({
-        value,
-        fromUnit: 'WEI',
-        toCurrency,
-        rates
-      }).value
-    }
-
-    return lift(transform)(yfiBalanceR, erc20RatesR, currencyR)
-  }
-)
-
-export const getUsdtBalanceInfo = createDeepEqualSelector(
-  [
-    getUsdtBalance,
-    state => selectors.core.data.eth.getErc20Rates(state, 'usdt'),
-    selectors.core.settings.getCurrency
-  ],
-  (usdtBalanceR, erc20RatesR, currencyR) => {
-    const transform = (value, rates, toCurrency) => {
-      return Exchange.convertUsdtToFiat({
-        value,
-        fromUnit: 'WEI',
-        toCurrency,
-        rates
-      }).value
-    }
-
-    return lift(transform)(usdtBalanceR, erc20RatesR, currencyR)
-  }
-)
-
-export const getWdgldBalanceInfo = createDeepEqualSelector(
-  [
-    getWdgldBalance,
-    state => selectors.core.data.eth.getErc20Rates(state, 'wdgld'),
-    selectors.core.settings.getCurrency
-  ],
-  (wdgldBalanceR, erc20RatesR, currencyR) => {
-    const transform = (value, rates, toCurrency) => {
-      return Exchange.convertWdgldToFiat({
-        value,
-        fromUnit: 'WEI',
-        toCurrency,
-        rates
-      }).value
-    }
-
-    return lift(transform)(wdgldBalanceR, erc20RatesR, currencyR)
-  }
-)
-
-export const getDotBalanceInfo = createDeepEqualSelector(
-  [
-    getDotBalance,
-    selectors.core.data.dot.getRates,
-    selectors.core.settings.getCurrency
-  ],
-  (dotBalanceR, dotRatesR, currencyR) => {
-    const transform = (value, rates, toCurrency) => {
-      return Exchange.convertDotToFiat({
-        value,
-        fromUnit: 'PLANCK',
-        toCurrency,
-        rates
-      }).value
-    }
-
-    return lift(transform)(dotBalanceR, dotRatesR, currencyR)
-  }
-)
-
-export const getXlmBalanceInfo = createDeepEqualSelector(
-  [
-    getXlmBalance,
-    selectors.core.data.xlm.getRates,
-    selectors.core.settings.getCurrency
-  ],
-  (xlmBalanceR, xlmRatesR, currencyR) => {
-    const transform = (value, rates, toCurrency) =>
-      Exchange.convertXlmToFiat({
-        value,
-        fromUnit: 'STROOP',
-        toCurrency,
-        rates
-      }).value
-    return lift(transform)(xlmBalanceR, xlmRatesR, currencyR)
-  }
-)
-
-export const getAlgoBalanceInfo = createDeepEqualSelector(
-  [
-    getAlgoBalance,
-    selectors.core.data.algo.getRates,
-    selectors.core.settings.getCurrency
-  ],
-  (algoBalanceR, algoRatesR, currencyR) => {
-    const transform = (value, rates, toCurrency) =>
-      Exchange.convertAlgoToFiat({
-        value,
-        fromUnit: 'mALGO',
-        toCurrency,
-        rates
-      }).value
-    return lift(transform)(algoBalanceR, algoRatesR, currencyR)
+    return lift(transform)(currencyR)
   }
 )
 
 export const getFiatBalanceInfo = createDeepEqualSelector(
   [
-    selectors.core.data.btc.getRates,
+    selectors.core.data.coins.getBtcTicker,
     selectors.core.settings.getCurrency,
-    selectors.components.simpleBuy.getSBBalances
+    selectors.components.buySell.getBSBalances
   ],
   (btcRatesR, currencyR, sbBalancesR) => {
     const transform = (
-      rates,
+      rates: ExtractSuccess<typeof btcRatesR>,
       currency,
       sbBalances: ExtractSuccess<typeof sbBalancesR>
     ) => {
       const keys = Object.keys(WalletFiatEnum).filter(
-        value => typeof WalletFiatEnum[value] === 'number'
+        (value) => typeof WalletFiatEnum[value] === 'number'
       )
 
       // @ts-ignore
@@ -535,13 +228,14 @@ export const getFiatBalanceInfo = createDeepEqualSelector(
         if (value === currency) return Number(standard)
 
         return Exchange.convertFiatToFiat({
-          value: standard,
           fromCurrency: value,
+          rates,
           toCurrency: currency,
-          rates
-        }).value
+          value: standard
+        })
       })
 
+      // @ts-ignore
       return balances.reduce(add, 0)
     }
 
@@ -549,175 +243,78 @@ export const getFiatBalanceInfo = createDeepEqualSelector(
   }
 )
 
-export const getTotalBalance = createDeepEqualSelector(
+export const getCoinsSortedByBalance = createDeepEqualSelector(
   [
-    getAaveBalanceInfo,
-    getBchBalanceInfo,
-    getBtcBalanceInfo,
-    getDotBalanceInfo,
-    getEthBalanceInfo,
-    getPaxBalanceInfo,
-    getXlmBalanceInfo,
-    getYfiBalanceInfo,
-    getFiatBalanceInfo,
-    selectors.core.settings.getCurrency
+    selectors.custodial.getRecentSwapTxs,
+    selectors.components.utils.getCoinsWithBalanceOrMethod,
+    (state: RootState) => state
   ],
-  (
-    aaveBalanceInfoR,
-    btcBalanceInfoR,
-    bchBalanceInfoR,
-    dotBalanceInfoR,
-    ethBalanceInfoR,
-    paxBalanceInfoR,
-    xlmBalanceInfoR,
-    yfiBalanceInfoR,
-    fiatBalanceInfoR,
-    currency
-  ) => {
-    const transform = (
-      aaveBalance,
-      bchBalance,
-      btcBalance,
-      dotBalance,
-      ethBalance,
-      paxBalance,
-      xlmBalance,
-      yfiBalance,
-      fiatBalance,
-      currency
-    ) => {
-      const total = formatFiat(
-        Number(aaveBalance) +
-          Number(btcBalance) +
-          Number(dotBalance) +
-          Number(ethBalance) +
-          Number(bchBalance) +
-          Number(paxBalance) +
-          Number(xlmBalance) +
-          Number(yfiBalance) +
-          Number(fiatBalance)
+  (recentSwapTxsR, coinsR, state: RootState) => {
+    const transform = (coins: ExtractSuccess<typeof coinsR>) => {
+      const coinSort = (a?: CoinfigType, b?: CoinfigType) => {
+        if (!a || !b) return -1
+        if (window.coins[a.symbol].coinfig.type.name === 'FIAT') return -1
+        if (window.coins[b.symbol].coinfig.type.name === 'FIAT') return -1
+
+        const coinA = a.symbol
+        const coinB = b.symbol
+        // doesnt really matter
+        const currency = 'USD'
+
+        const defaultRate = { price: 1 }
+
+        const ratesA = selectors.core.data.misc
+          .getRatesSelector(coinA, state)
+          .getOrElse(defaultRate as RatesType)
+        const ratesB = selectors.core.data.misc
+          .getRatesSelector(coinB, state)
+          .getOrElse(defaultRate as RatesType)
+
+        const coinAFiat = Exchange.convertCoinToFiat({
+          coin: coinA,
+          currency,
+          rates: ratesA,
+          value: getBalanceSelector(coinA)(state).getOrElse(0).valueOf()
+        })
+        const coinBFiat = Exchange.convertCoinToFiat({
+          coin: coinB,
+          currency,
+          rates: ratesB,
+          value: getBalanceSelector(coinB)(state).getOrElse(0).valueOf()
+        })
+
+        return Number(coinAFiat) > Number(coinBFiat) ? -1 : 1
+      }
+
+      // returns all coins with balances as a list
+      const coinsWithBalance = map(
+        (coin) => coins.find((c) => c.coinfig.symbol === coin),
+        reject(
+          (coin) =>
+            getBalanceSelector(coin)(state).getOrElse(0) <= 0 &&
+            window.coins[coin].coinfig.type.name !== 'FIAT' &&
+            coin !== 'BTC',
+          Object.keys(window.coins)
+        )
       )
-      const totalBalance = `${Exchange.getSymbol(currency)}${total}`
-      return { totalBalance }
+        .map((coin) => coin?.coinfig)
+        .filter(Boolean)
+
+      const coinsInRecentSwaps = [
+        ...new Set(
+          recentSwapTxsR.getOrElse([] as SwapOrderType[]).map((tx) => getOutputFromPair(tx.pair))
+        )
+      ]
+
+      const coinsWithoutBalanceToTrack = coinsInRecentSwaps
+        .filter((coin) => !coinsWithBalance.find((coinfig) => coinfig?.symbol === coin))
+        .filter((coin) => window.coins[coin])
+        .map((coin) => window.coins[coin].coinfig)
+
+      // list of coins with balance and then coins w/ no balance but swaps
+      return [...coinsWithBalance, ...coinsWithoutBalanceToTrack].sort(coinSort) as CoinfigType[]
     }
-    return lift(transform)(
-      aaveBalanceInfoR,
-      bchBalanceInfoR,
-      btcBalanceInfoR,
-      dotBalanceInfoR,
-      ethBalanceInfoR,
-      paxBalanceInfoR,
-      xlmBalanceInfoR,
-      yfiBalanceInfoR,
-      fiatBalanceInfoR,
-      currency
-    )
-  }
-)
 
-export const getBalanceSelector = (coin: WalletCurrencyType) => {
-  switch (coin) {
-    case 'AAVE':
-      return getAaveBalance
-    case 'ALGO':
-      return getAlgoBalance
-    case 'BCH':
-      return getBchBalance
-    case 'BTC':
-      return getBtcBalance
-    case 'DOT':
-      return getDotBalance
-    case 'ETH':
-      return getEthBalance
-    case 'EUR':
-    case 'GBP':
-    case 'USD':
-      return getFiatBalance(coin)
-    case 'PAX':
-      return getPaxBalance
-    case 'XLM':
-      return getXlmBalance
-    case 'USDT':
-      return getUsdtBalance
-    case 'WDGLD':
-      return getWdgldBalance
-    case 'YFI':
-      return getYfiBalance
-    default:
-      return Remote.Failure(INVALID_COIN_TYPE)
-  }
-}
-
-export const getAllCoinsBalancesSelector = state => {
-  return {
-    AAVE: getAaveBalance(state)
-      .getOrElse(new BigNumber(0))
-      .valueOf(),
-    ALGO: getAlgoBalance(state)
-      .getOrElse(new BigNumber(0))
-      .valueOf(),
-    BCH: new BigNumber(getBchBalance(state).getOrElse(0)).valueOf(),
-    BTC: new BigNumber(getBtcBalance(state).getOrElse(0)).valueOf(),
-    DOT: getDotBalance(state)
-      .getOrElse(new BigNumber(0))
-      .valueOf(),
-    ETH: getEthBalance(state)
-      .getOrElse(new BigNumber(0))
-      .valueOf(),
-    PAX: getPaxBalance(state)
-      .getOrElse(new BigNumber(0))
-      .valueOf(),
-    XLM: getXlmBalance(state)
-      .getOrElse(new BigNumber(0))
-      .valueOf(),
-    USDT: getUsdtBalance(state)
-      .getOrElse(new BigNumber(0))
-      .valueOf(),
-    WDGLD: getWdgldBalance(state)
-      .getOrElse(new BigNumber(0))
-      .valueOf(),
-    YFI: getYfiBalance(state)
-      .getOrElse(new BigNumber(0))
-      .valueOf()
-  }
-}
-
-export const getErc20BalancesInfo = createDeepEqualSelector(
-  [
-    getAaveBalanceInfo,
-    getPaxBalanceInfo,
-    getUsdtBalanceInfo,
-    getWdgldBalanceInfo,
-    getYfiBalanceInfo
-  ],
-  (
-    aaveBalanceInfoR,
-    paxBalanceInfoR,
-    usdtBalanceInfoR,
-    wdgldBalanceInfoR,
-    yfiBalanceInfoR
-  ) => {
-    const transform = (
-      aaveBalance,
-      paxBalance,
-      usdtBalance,
-      wdgldBalance,
-      yfiBalance
-    ) => {
-      return (
-        Number(aaveBalance) +
-        Number(paxBalance) +
-        Number(usdtBalance) +
-        Number(wdgldBalance) +
-        Number(yfiBalance)
-      )
-    }
-    return lift(transform)(
-      aaveBalanceInfoR,
-      paxBalanceInfoR,
-      usdtBalanceInfoR,
-      wdgldBalanceInfoR,
-      yfiBalanceInfoR
-    )
+    return lift(transform)(coinsR)
   }
 )

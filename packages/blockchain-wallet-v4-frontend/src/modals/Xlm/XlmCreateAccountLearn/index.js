@@ -1,19 +1,11 @@
 import React from 'react'
 import { FormattedMessage } from 'react-intl'
 import { connect } from 'react-redux'
-import PropTypes from 'prop-types'
 import { bindActionCreators, compose } from 'redux'
 import styled from 'styled-components'
 
-import {
-  Icon,
-  Link,
-  Modal,
-  ModalBody,
-  ModalHeader,
-  Text
-} from 'blockchain-info-components'
-import { actions, model } from 'data'
+import { Icon, Link, Modal, ModalBody, ModalHeader, Text } from 'blockchain-info-components'
+import { actions } from 'data'
 import modalEnhancer from 'providers/ModalEnhancer'
 
 const Header = styled.div`
@@ -46,7 +38,7 @@ class XlmCreateAccountLearn extends React.PureComponent {
   onClose = () => {
     this.props.closeAll()
     this.props.modalActions.showModal('SEND_XLM_MODAL', {
-      origin: '@SEND.XLM.CREATE_ACCOUNT_LEARN_MODAL'
+      origin: 'SEND_XLM_CREATE_ACCOUNT_LEARN_MODAL'
     })
   }
 
@@ -62,11 +54,7 @@ class XlmCreateAccountLearn extends React.PureComponent {
       >
         <ModalHeader onClose={this.onClose}>
           <Header onClick={this.onClose}>
-            <BackIcon
-              name='arrow-left'
-              data-e2e='xlmMinimumModalBack'
-              size='20px'
-            />
+            <BackIcon name='arrow-left' data-e2e='xlmMinimumModalBack' size='20px' />
             <FormattedMessage id='buttons.back' defaultMessage='Back' />
           </Header>
         </ModalHeader>
@@ -100,10 +88,7 @@ class XlmCreateAccountLearn extends React.PureComponent {
               href='https://www.stellar.org/developers/guides/concepts/fees.html#minimum-account-balance'
               target='_blank'
             >
-              <FormattedMessage
-                id='modal.createaccountlearn.link'
-                defaultMessage='Stellar.org'
-              />
+              <FormattedMessage id='modal.createaccountlearn.link' defaultMessage='Stellar.org' />
             </StyledLink>
           </Paragraph>
         </ModalBody>
@@ -112,16 +97,12 @@ class XlmCreateAccountLearn extends React.PureComponent {
   }
 }
 
-XlmCreateAccountLearn.propTypes = {
-  reserveXlm: PropTypes.string.isRequired
-}
-
-const mapDispatchToProps = dispatch => ({
+const mapDispatchToProps = (dispatch) => ({
   modalActions: bindActionCreators(actions.modals, dispatch)
 })
 
 const enhance = compose(
-  modalEnhancer(model.components.sendXlm.CREATE_ACCOUNT_LEARN_MODAL),
+  modalEnhancer('SEND_XLM_CREATE_ACCOUNT_LEARN_MODAL'),
   connect(null, mapDispatchToProps)
 )
 

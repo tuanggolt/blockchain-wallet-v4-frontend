@@ -1,20 +1,20 @@
 export default {
-  code: 'GBP',
   base: 'CENT',
-  displayName: 'Pounds',
+  code: 'GBP',
+  displayName: 'British Pound',
   trade: 'GBP',
   units: {
     CENT: {
-      rate: '1',
-      symbol: '¢£',
+      currency: 'GBP',
       decimal_digits: 0,
-      currency: 'GBP'
+      rate: '1',
+      symbol: '¢£'
     },
     GBP: {
-      rate: '100',
-      symbol: '£',
+      currency: 'GBP',
       decimal_digits: 2,
-      currency: 'GBP'
+      rate: '100',
+      symbol: '£'
     }
   }
 }

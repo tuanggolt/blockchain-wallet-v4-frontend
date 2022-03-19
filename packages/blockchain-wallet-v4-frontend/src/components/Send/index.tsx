@@ -1,13 +1,10 @@
-import React from 'react'
-import { FormattedMessage } from 'react-intl'
-import BigNumber from 'bignumber.js'
-import styled, { css } from 'styled-components'
+import React, { memo } from 'react'
+import styled from 'styled-components'
 
+import { ADDRESS_TYPES } from '@core/redux/payment/btc/utils'
+import { CustodialFromType } from '@core/types'
 import { Banner } from 'blockchain-info-components'
-import { CoinType, CustodialFromType } from 'blockchain-wallet-v4/src/types'
-import { BlueCartridge } from 'components/Cartridge'
 import { FormGroup, FormLabel } from 'components/Form'
-import { convertBaseToStandard } from 'data/components/exchange/services'
 import { media } from 'services/styles'
 
 import LockTime from './LockTime'
@@ -40,15 +37,15 @@ export const AddressButton = styled.div`
   width: 40px;
   height: 40px;
   box-sizing: border-box;
-  border: 1px solid ${props => props.theme.grey200};
+  border: 1px solid ${(props) => props.theme.grey200};
 
   &:hover {
-    background-color: ${props => props.theme.grey000};
+    background-color: ${(props) => props.theme.grey000};
   }
 `
 export const FeeFormContainer = styled.div<{ toggled: boolean }>`
   display: flex;
-  flex-direction: ${props => (props.toggled ? 'column' : 'row')};
+  flex-direction: ${(props) => (props.toggled ? 'column' : 'row')};
   align-items: center;
   justify-content: space-between;
   width: 100%;
@@ -82,57 +79,8 @@ export const FeePerByteContainer = styled.div`
 export const CustomFeeAlertBanner = styled(Banner)`
   margin-bottom: 18px;
 `
-const customCartridge = css`
-  display: flex;
-  align-items: center;
-  font-size: 14px;
-`
-export const CustomBlueCartridge = styled(BlueCartridge)`
-  ${customCartridge}
-`
 
-export const CustodyToAccountMessage = ({
-  account,
-  coin
-}: {
-  account: CustodialFromType
-  amount?: {
-    coin: string
-    coinCode: CoinType
-    fiat: string
-  }
-  coin: CoinType
-}) => {
-  const isAvailableNone = new BigNumber(account.available).isLessThanOrEqualTo(
-    '0'
-  )
-  const isWithdrawableNone = new BigNumber(
-    account.withdrawable
-  ).isLessThanOrEqualTo('0')
-  const isAvailableEqualToWithdrawable = new BigNumber(
-    account.available
-  ).isEqualTo(account.withdrawable)
-
-  switch (true) {
-    // all funds are 'locked'
-    case isWithdrawableNone && !isAvailableNone:
-      return <LockTime coin={coin} />
-    case !isWithdrawableNone && !isAvailableEqualToWithdrawable:
-      return (
-        <LockTime
-          coin={coin}
-          withdrawable={convertBaseToStandard(coin, account.withdrawable)}
-        />
-      )
-    default:
-      return (
-        <CustomBlueCartridge>
-          <FormattedMessage
-            id='modals.send.firststep.fromcustody11'
-            defaultMessage='At this time, Blockchain.com only allows sending from your {coin} Trading Account to your {coin} Wallet.'
-            values={{ coin }}
-          />
-        </CustomBlueCartridge>
-      )
-  }
-}
+export const CustodyToAccountMessage = memo(({ account }: { account: CustodialFromType }) => {
+  if (account.type !== ADDRESS_TYPES.CUSTODIAL) return null
+  return <LockTime />
+})

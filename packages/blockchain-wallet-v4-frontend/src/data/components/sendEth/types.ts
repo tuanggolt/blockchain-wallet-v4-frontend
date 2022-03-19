@@ -1,15 +1,17 @@
-import { EthAccountFromType } from 'blockchain-wallet-v4/src/redux/payment/eth/types'
+import { EthAccountFromType } from '@core/redux/payment/eth/types'
 import {
+  CrossBorderLimits,
   CustodialFromType,
   Erc20CoinType,
   EthPaymentType,
   RemoteDataType
-} from 'blockchain-wallet-v4/src/types'
+} from '@core/types'
 
 export type SendEthState = {
   feeToggled: boolean
   isContract: RemoteDataType<string, boolean>
   payment: RemoteDataType<string, ReturnType<EthPaymentType['value']>>
+  sendLimits: RemoteDataType<string, CrossBorderLimits>
   step: 1 | 2
 }
 

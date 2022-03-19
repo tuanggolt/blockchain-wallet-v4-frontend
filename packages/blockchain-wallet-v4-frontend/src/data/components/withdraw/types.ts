@@ -1,14 +1,15 @@
 import {
   BeneficiaryType,
+  CrossBorderLimits,
+  FiatType,
   RemoteDataType,
   WalletFiatType,
   WithdrawalLockResponseType,
   WithdrawalMinsAndFeesResponse,
   WithdrawResponseType
-} from 'blockchain-wallet-v4/src/types'
-import { BankTransferAccountType } from 'data/types'
+} from '@core/types'
 
-import * as AT from './actionTypes'
+import { BankTransferAccountType } from '../brokerage/types'
 
 // types
 export type WithdrawCheckoutFormValuesType = {
@@ -21,12 +22,13 @@ export enum WithdrawStepEnum {
   ENTER_AMOUNT = 'ENTER_AMOUNT',
   INELIGIBLE = 'INELIGIBLE',
   LOADING = 'LOADING',
+  ON_HOLD = 'ON_HOLD',
   WITHDRAWAL_DETAILS = 'WITHDRAWAL_DETAILS',
   WITHDRAWAL_METHODS = 'WITHDRAWAL_METHODS'
 }
 
 export type WithdrawStepActionsPayload =
-  | { step: WithdrawStepEnum.LOADING | WithdrawStepEnum.INELIGIBLE }
+  | { step: WithdrawStepEnum.LOADING | WithdrawStepEnum.INELIGIBLE | WithdrawStepEnum.ON_HOLD }
   | {
       beneficiary?: BeneficiaryType
       fiatCurrency: WalletFiatType
@@ -56,6 +58,7 @@ export type WithdrawStepActionsPayload =
 export type WithdrawState = {
   amount?: string
   beneficiary?: BeneficiaryType
+  crossBorderLimits: RemoteDataType<string, CrossBorderLimits>
   feesAndMinAmount: RemoteDataType<string, WithdrawalMinsAndFeesResponse>
   fiatCurrency: WalletFiatType
   step: WithdrawStepEnum
@@ -63,48 +66,33 @@ export type WithdrawState = {
   withdrawal?: WithdrawResponseType
 }
 
-// actions
-interface SetStepAction {
-  payload: WithdrawStepActionsPayload
-  type: typeof AT.SET_STEP
-}
-interface FetchWithdrawalFeesFailure {
-  payload: {
-    error: string
-  }
-  type: typeof AT.FETCH_WITHDRAWAL_FEES_FAILURE
-}
-interface FetchWithdrawalFeesLoading {
-  type: typeof AT.FETCH_WITHDRAWAL_FEES_LOADING
-}
-interface FetchWithdrawalFeesSuccess {
-  payload: {
-    withdrawFeesResponse: WithdrawalMinsAndFeesResponse
-  }
-  type: typeof AT.FETCH_WITHDRAWAL_FEES_SUCCESS
+type LimitItem = {
+  available: string
+  limit: string
+  used: string
 }
 
-interface FetchWithdrawalLockFailure {
-  payload: {
-    error: string
+export type WithdrawLimitsResponse = {
+  cryptoLimit: {
+    available: string
+    daily: LimitItem
+    monthly: LimitItem
+    suggestedUpgrade: {
+      daily: LimitItem
+      monthly: LimitItem
+      requiredTier: number
+      requirements: string[]
+    }
   }
-  type: typeof AT.FETCH_WITHDRAWAL_LOCK_FAILURE
-}
-interface FetchWithdrawalLockLoading {
-  type: typeof AT.FETCH_WITHDRAWAL_LOCK_LOADING
-}
-interface FetchWithdrawalLockSuccess {
-  payload: {
-    withdrawLockResponse: WithdrawalLockResponseType
+  currency: FiatType
+  fiatLimit: {
+    available: string
+    suggestedUpgrade: {
+      daily: LimitItem
+      monthly: LimitItem
+      requiredTier: number
+      requirements: string[]
+    }
   }
-  type: typeof AT.FETCH_WITHDRAWAL_LOCK_SUCCESS
+  userId: string
 }
-
-export type WithdrawActionTypes =
-  | SetStepAction
-  | FetchWithdrawalFeesFailure
-  | FetchWithdrawalFeesSuccess
-  | FetchWithdrawalFeesLoading
-  | FetchWithdrawalLockFailure
-  | FetchWithdrawalLockLoading
-  | FetchWithdrawalLockSuccess

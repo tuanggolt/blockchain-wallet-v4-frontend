@@ -1,11 +1,10 @@
 import React from 'react'
 import { FormattedMessage } from 'react-intl'
 import moment from 'moment'
-import { transparentize } from 'polished'
 import styled, { DefaultTheme } from 'styled-components'
 
+import { CoinType, IOType, ProcessedTxType } from '@core/types'
 import { Icon, Text, TextGroup } from 'blockchain-info-components'
-import { CoinType } from 'blockchain-wallet-v4/src/types'
 import CoinDisplay from 'components/Display/CoinDisplay'
 import FiatDisplay from 'components/Display/FiatDisplay'
 
@@ -20,34 +19,69 @@ export const Addresses = ({ from, to }) => {
   return (
     <AddressesWrapper>
       <TextGroup inline style={{ marginBottom: '5px' }}>
-        <Text size='14px' color={'grey600'} weight={500}>
+        <Text size='14px' color='grey600' weight={500}>
           <FormattedMessage id='copy.to:' defaultMessage='To: ' />
         </Text>
-        <Text
-          size='14px'
-          color={'grey600'}
-          weight={500}
-          data-e2e='transactionListItemTo'
-        >
+        <Text size='14px' color='grey600' weight={500} data-e2e='transactionListItemTo'>
           {to}
         </Text>
       </TextGroup>
       <TextGroup inline>
-        <Text size='14px' color={'grey600'} weight={500}>
-          <FormattedMessage id='copy.from:' defaultMessage='From: ' />
+        <Text size='14px' color='grey600' weight={500}>
+          <FormattedMessage id='copy.from' defaultMessage='From' />:
         </Text>
-        <Text
-          size='14px'
-          color={'grey600'}
-          weight={500}
-          data-e2e='transactionListItemFrom'
-        >
+        <Text size='14px' color='grey600' weight={500} data-e2e='transactionListItemFrom'>
           {from}
         </Text>
       </TextGroup>
     </AddressesWrapper>
   )
 }
+
+const FormattedAddress = styled.span`
+  font-size: 12px;
+  color: ${(p) => p.theme.grey300};
+
+  &::before {
+    content: '(';
+  }
+  &::after {
+    content: ')';
+  }
+`
+export const toAccountFormatter = (transaction: ProcessedTxType) => {
+  const { to, type } = transaction
+  return (
+    <span>
+      {to}{' '}
+      {type === 'received' && 'toAddress' in transaction ? (
+        <FormattedAddress>{transaction.toAddress}</FormattedAddress>
+      ) : (
+        ''
+      )}
+    </span>
+  )
+}
+
+export const fromAccountFormatter = (transaction: ProcessedTxType) => {
+  const { from, type } = transaction
+  const inputs = ('inputs' in transaction && transaction.inputs) || ([] as IOType[])
+  return (
+    <span>
+      {from}{' '}
+      {type === 'sent' && inputs.length === 1 ? (
+        <FormattedAddress>{inputs[0]?.address}</FormattedAddress>
+      ) : type === 'sent' && inputs.length > 1 ? (
+        <FormattedAddress>
+          {inputs[0]?.address}, +{inputs.length - 1}
+        </FormattedAddress>
+      ) : (
+        ''
+      )}
+    </span>
+  )
+}
+
 export const TxRowContainer = styled.div`
   position: relative;
   display: flex;
@@ -57,7 +91,7 @@ export const TxRowContainer = styled.div`
   width: 100%;
   box-sizing: border-box;
   &:not(:last-child) {
-    border-bottom: 1px solid ${props => props.theme.grey000};
+    border-bottom: 1px solid ${(props) => props.theme.grey000};
   }
 `
 export const TxRow = styled.div`
@@ -70,7 +104,7 @@ export const TxRow = styled.div`
   padding: 14px;
 `
 export const Col = styled.div<{ width: string }>`
-  width: ${props => props.width};
+  width: ${(props) => props.width};
 `
 
 export const DetailsRow = styled.div`
@@ -92,12 +126,22 @@ export const DetailsColumn = styled.div`
     align-items: flex-end;
   }
 `
+export const IconWrapper = styled.div<{ color: keyof DefaultTheme }>`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  width: 32px;
+  border-radius: 16px;
+`
 
 export const IconTx = ({
   coin,
+  subType,
   type
 }: {
   coin?: CoinType | 'FIAT'
+  subType?: string
   type:
     | 'BUY'
     | 'SELL'
@@ -116,15 +160,17 @@ export const IconTx = ({
       case 'PENDING':
         return <Icon size='20px' weight={600} name='timer' color='grey700' />
       case 'BUY':
-      case 'SELL':
+        const isRecurringBuy = subType === 'recurringBuy'
         return (
           <Icon
-            size='24px'
+            size={isRecurringBuy ? '15px' : '24px'}
             weight={600}
-            name={type === 'BUY' ? 'plus' : 'minus'}
+            name={isRecurringBuy ? 'sync-regular' : 'plus'}
             color={color}
           />
         )
+      case 'SELL':
+        return <Icon size='24px' weight={600} name='minus' color={color} />
       case 'DEPOSIT':
       case 'WITHDRAWAL':
         return (
@@ -136,41 +182,13 @@ export const IconTx = ({
           />
         )
       case 'SWAP':
-        return (
-          <Icon
-            size='12px'
-            weight={600}
-            name='arrows-horizontal'
-            color={color}
-          />
-        )
+        return <Icon size='12px' weight={600} name='arrows-horizontal' color={color} />
       case 'received':
-        return (
-          <Icon
-            size='12px'
-            weight={600}
-            name={'arrow-bottom-right'}
-            color={color}
-          />
-        )
+        return <Icon size='12px' weight={600} name='arrow-bottom-right' color={color} />
       case 'sent':
-        return (
-          <Icon
-            size='18px'
-            weight={600}
-            name={'arrow-top-right'}
-            color={color}
-          />
-        )
+        return <Icon size='18px' weight={600} name='arrow-top-right' color={color} />
       case 'transferred':
-        return (
-          <Icon
-            size='12px'
-            weight={600}
-            name={'arrow-top-right-bottom-left'}
-            color={color}
-          />
-        )
+        return <Icon size='12px' weight={600} name='arrow-top-right-bottom-left' color={color} />
       default:
         return <></>
     }
@@ -180,15 +198,7 @@ export const IconTx = ({
 
   return <IconWrapper color={bgColor}>{getIcon()}</IconWrapper>
 }
-export const IconWrapper = styled.div<{ color: keyof DefaultTheme }>`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 32px;
-  width: 32px;
-  border-radius: 16px;
-  background: ${props => transparentize(0.85, props.theme[props.color])};
-`
+
 export const Row = styled(Col)`
   display: flex;
   align-items: center;
@@ -197,22 +207,22 @@ export const RowHeader = styled(Text)`
   font-weight: 500;
   font-size: 13px;
   margin-top: 12px;
-  color: ${props => props.theme.grey600};
+  color: ${(props) => props.theme.grey600};
 `
 export const RowValue = styled(Text)`
   font-weight: 600;
-  font-size: ${props => props.size || '14px'};
+  font-size: ${(props) => props.size || '14px'};
   margin-top: 4px;
-  color: ${props => props.theme.grey800};
+  color: ${(props) => props.theme.grey800};
 `
 export const StyledCoinDisplay = styled(CoinDisplay)`
-  color: ${props => props.theme.grey800};
+  color: ${(props) => props.theme.grey800};
   justify-content: flex-end;
   font-size: 16px !important;
   font-weight: 600 !important;
 `
 export const StyledFiatDisplay = styled(FiatDisplay)`
-  color: ${props => props.theme.grey600};
+  color: ${(props) => props.theme.grey600};
   margin-top: 4px;
   justify-content: flex-end;
 `
@@ -233,9 +243,7 @@ export const Timestamp = ({ time }: { time: string | number }) => {
       style={{ marginTop: '4px' }}
       data-e2e='txTimeOrStatus'
     >
-      {moment(time)
-        .local()
-        .format('MMMM D YYYY @h:mmA')}
+      {moment(time).local().format('h:mm a on D MMM YYYY')}
     </Text>
   )
 }

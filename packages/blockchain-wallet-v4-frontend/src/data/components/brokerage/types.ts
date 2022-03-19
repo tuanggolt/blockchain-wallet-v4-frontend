@@ -1,6 +1,4 @@
-import { FiatType, RemoteDataType, WalletFiatType } from 'core/types'
-
-import * as AT from './actionTypes'
+import { CrossBorderLimits, FiatType, RemoteDataType, WalletFiatType } from '@core/types'
 
 export enum BankPartners {
   YAPILY = 'YAPILY',
@@ -60,10 +58,13 @@ export enum BankStatusType {
   BANK_TRANSFER_ACCOUNT_ALREADY_LINKED = 'BANK_TRANSFER_ACCOUNT_ALREADY_LINKED',
   BANK_TRANSFER_ACCOUNT_EXPIRED = 'BANK_TRANSFER_ACCOUNT_EXPIRED',
   BANK_TRANSFER_ACCOUNT_FAILED = 'BANK_TRANSFER_ACCOUNT_FAILED',
+  BANK_TRANSFER_ACCOUNT_FAILED_INTERNAL = 'BANK_TRANSFER_ACCOUNT_FAILED_INTERNAL',
   BANK_TRANSFER_ACCOUNT_INFO_NOT_FOUND = 'BANK_TRANSFER_ACCOUNT_INFO_NOT_FOUND',
   BANK_TRANSFER_ACCOUNT_INVALID = 'BANK_TRANSFER_ACCOUNT_INVALID',
   BANK_TRANSFER_ACCOUNT_NAME_MISMATCH = 'BANK_TRANSFER_ACCOUNT_NAME_MISMATCH',
+  BANK_TRANSFER_ACCOUNT_NOT_SUPPORTED = 'BANK_TRANSFER_ACCOUNT_NOT_SUPPORTED',
   BANK_TRANSFER_ACCOUNT_REJECTED = 'BANK_TRANSFER_ACCOUNT_REJECTED',
+  BANK_TRANSFER_ACCOUNT_REJECTED_FRAUD = 'BANK_TRANSFER_ACCOUNT_REJECTED_FRAUD',
   DEFAULT_ERROR = 'DEFAULT_ERROR'
 }
 
@@ -161,11 +162,23 @@ export enum AddBankStepType {
 }
 
 export enum BrokerageModalOriginType {
-  ADD_BANK = 'AddBankModal',
+  ADD_BANK_BUY = 'AddBankModalBuy',
+  ADD_BANK_DEPOSIT = 'AddBankModalDeposit',
+  ADD_BANK_SETTINGS = 'AddBankModalSettings',
+  ADD_BANK_WITHDRAW = 'AddBankModalWithdraw',
   BANK = 'BankDetailsModal',
   DEPOSIT_BUTTON = 'BankDeposit',
   DW = 'DepositWithdrawalModal',
+  TRADE = 'Trade',
   WITHDRAWAL = 'WithdrawModal'
+}
+
+export enum BrokerageOrderType {
+  BUY = 'BUY',
+  DEPOSIT = 'DEPOSIT',
+  SELL = 'SELL',
+  SWAP = 'SWAP',
+  WITHDRAW = 'WITHDRAW'
 }
 
 export type BrokerageTxFormValuesType =
@@ -183,86 +196,10 @@ export type BrokerageState = {
   bankCredentials: RemoteDataType<string, OBType>
   bankStatus: RemoteDataType<string, BankStatusType>
   bankTransferAccounts: RemoteDataType<string, Array<BankTransferAccountType>>
+  crossBorderLimits: RemoteDataType<string, CrossBorderLimits>
   dwStep: BankDWStepType
   fastLink: RemoteDataType<string, FastLinkType>
   fiatCurrency: WalletFiatType | undefined
+  isFlow: boolean
   redirectBackToStep: boolean
 }
-
-interface FetchBankLinkCredentialsType {
-  payload: { fiatCurrency: WalletFiatType }
-  type: typeof AT.FETCH_BANK_LINK_CREDENTIALS
-}
-
-interface FetchBankTransferAccountsFailure {
-  payload: {
-    error: string
-  }
-  type: typeof AT.FETCH_BANK_TRANSFER_ACCOUNTS_ERROR
-}
-interface FetchBankTransferAccountsLoading {
-  type: typeof AT.FETCH_BANK_TRANSFER_ACCOUNTS_LOADING
-}
-
-interface FetchBankTransferAccountsSuccess {
-  payload: {
-    accounts: BankTransferAccountType[]
-  }
-  type: typeof AT.FETCH_BANK_TRANSFER_ACCOUNTS_SUCCESS
-}
-
-interface FetchBTUpdateLoading {
-  type: typeof AT.FETCH_BANK_TRANSFER_UPDATE_LOADING
-}
-
-interface SetFastLinkAction {
-  payload: { fastLink: FastLinkType }
-  type: typeof AT.SET_FAST_LINK
-}
-
-interface SetAddBankStepAction {
-  payload: BrokerageAddBankStepPayload
-  type: typeof AT.SET_ADD_BANK_STEP
-}
-
-interface SetDWStepAction {
-  payload: BrokerageDWStepPayload
-  type: typeof AT.SET_D_W_STEP
-}
-interface SetBankAccountAction {
-  payload: BankDetailsPayload
-  type: typeof AT.SET_BANK_DETAILS
-}
-interface HandeDepositFiatClickAction {
-  payload: { fiatCurrency: WalletFiatType }
-  type: typeof AT.HANDLE_DEPOSIT_FIAT_CLICK
-}
-
-interface FetchBankCredentialsSuccessAction {
-  payload: { credentials: OBType }
-  type: typeof AT.FETCH_BANK_CREDENTIALS_SUCCESS
-}
-
-interface FetchBankCredentialsLoadingAction {
-  type: typeof AT.FETCH_BANK_CREDENTIALS_LOADING
-}
-
-interface FetchBankCredentialsErrorAction {
-  payload: { error: string }
-  type: typeof AT.FETCH_BANK_CREDENTIALS_ERROR
-}
-
-export type BrokerageActionTypes =
-  | FetchBankCredentialsErrorAction
-  | FetchBankCredentialsLoadingAction
-  | FetchBankCredentialsSuccessAction
-  | FetchBankTransferAccountsFailure
-  | FetchBankTransferAccountsLoading
-  | FetchBankTransferAccountsSuccess
-  | FetchBTUpdateLoading
-  | FetchBankLinkCredentialsType
-  | SetFastLinkAction
-  | SetAddBankStepAction
-  | SetBankAccountAction
-  | SetDWStepAction
-  | HandeDepositFiatClickAction

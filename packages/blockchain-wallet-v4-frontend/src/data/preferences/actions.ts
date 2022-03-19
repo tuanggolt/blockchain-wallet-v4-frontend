@@ -1,32 +1,29 @@
-import { SBOrderActionType } from 'blockchain-wallet-v4/src/types'
-import { SBFixType } from 'data/components/types'
+import { BSOrderActionType } from '@core/types'
+import { BSFixType } from 'data/types'
 
 import * as AT from './actionTypes'
 
-export const setCulture = culture => ({
-  type: AT.SET_CULTURE,
-  payload: { culture }
+export const setCulture = (culture) => ({
+  payload: { culture },
+  type: AT.SET_CULTURE
 })
 export const setLanguage = (language, showAlert) => ({
-  type: AT.SET_LANGUAGE,
-  payload: { language, showAlert }
+  payload: { language, showAlert },
+  type: AT.SET_LANGUAGE
 })
 export const toggleCoinDisplayed = () => ({ type: AT.TOGGLE_COIN_DISPLAY })
 
-export const setSBCheckoutFix = (
-  orderType: SBOrderActionType,
-  fix: SBFixType
-) => ({
-  type: AT.SET_SB_CHECKOUT_FIX,
+export const setBSCheckoutFix = (orderType: BSOrderActionType, fix: BSFixType) => ({
   payload: {
-    orderType,
-    fix
-  }
+    fix,
+    orderType
+  },
+  type: AT.SET_BS_CHECKOUT_FIX
 })
-export const setTheme = theme => ({ type: AT.SET_THEME, payload: { theme } })
-export const setTotalBalancesDropdown = payload => ({
-  type: AT.SET_TOTAL_BALANCES_DROPDOWN,
-  payload
+export const setTheme = (theme) => ({ payload: { theme }, type: AT.SET_THEME })
+export const setTotalBalancesDropdown = (payload) => ({
+  payload,
+  type: AT.SET_TOTAL_BALANCES_DROPDOWN
 })
 
 export const hideKycCompleted = () => ({ type: AT.HIDE_KYC_COMPLETED })
@@ -44,4 +41,7 @@ export const hideLockboxSoftwareDownload = () => ({
 })
 export const hideInterestInfoBox = () => ({
   type: AT.HIDE_INTEREST_INFO_BOX
+})
+export const setLinkHandling = () => ({
+  type: AT.SET_LINK_HANDLING
 })

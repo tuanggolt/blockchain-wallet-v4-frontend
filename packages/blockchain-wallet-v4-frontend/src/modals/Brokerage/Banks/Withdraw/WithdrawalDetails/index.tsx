@@ -1,13 +1,10 @@
-import React, { PureComponent } from 'react'
+import React from 'react'
 import { FormattedMessage } from 'react-intl'
 import styled from 'styled-components'
 
+import { fiatToString } from '@core/exchange/utils'
+import { WalletFiatType, WithdrawResponseType } from '@core/types'
 import { Button, Icon, Text } from 'blockchain-info-components'
-import { fiatToString } from 'blockchain-wallet-v4/src/exchange/currency'
-import {
-  WalletFiatType,
-  WithdrawResponseType
-} from 'blockchain-wallet-v4/src/types'
 
 const Wrapper = styled.div`
   height: 100%;
@@ -38,55 +35,44 @@ const SuccessIcon = styled(Icon)`
   position: absolute;
   top: -16px;
   right: -22px;
-  background: ${props => props.theme.white};
+  background: ${(props) => props.theme.white};
 `
-
-class WithdrawalDetails extends PureComponent<Props> {
-  state = {}
-
-  render() {
-    return (
-      <Wrapper>
-        <div>
-          <IconContainer>
-            <Icon size='72px' color='USD' name={this.props.fiatCurrency} />
-            <SuccessIcon
-              name='checkmark-circle-filled'
-              color='USD'
-              size='28px'
-            />
-          </IconContainer>
-          <Title weight={600} size='20px'>
-            {fiatToString({
-              value: this.props.withdrawal.amount.value,
-              unit: this.props.withdrawal.amount.symbol
-            })}{' '}
-            {this.props.withdrawal.amount.symbol}
-          </Title>
-          <SubTitle size='14px' color='grey600' weight={500}>
-            <FormattedMessage
-              id='modals.withdraw.success'
-              defaultMessage='Success! We are withdrawing the cash from your {currency} Wallet now. The funds should be in your bank in 1-3 business days.'
-              values={{
-                currency: this.props.fiatCurrency
-              }}
-            />
-          </SubTitle>
-          <Button
-            fullwidth
-            height='48px'
-            data-e2e='withdrawReload'
-            nature='primary'
-            size='16px'
-            onClick={() => this.props.handleClose()}
-          >
-            <FormattedMessage id='buttons.close' defaultMessage='Close' />
-          </Button>
-        </div>
-      </Wrapper>
-    )
-  }
-}
+const WithdrawalDetails = ({ fiatCurrency, handleClose, withdrawal }: Props) => (
+  <Wrapper>
+    <div>
+      <IconContainer>
+        <Icon size='72px' color='USD' name={fiatCurrency} />
+        <SuccessIcon name='checkmark-circle-filled' color='USD' size='28px' />
+      </IconContainer>
+      <Title weight={600} size='20px'>
+        {fiatToString({
+          unit: withdrawal.amount.symbol,
+          value: withdrawal.amount.value
+        })}{' '}
+        {withdrawal.amount.symbol}
+      </Title>
+      <SubTitle size='14px' color='grey600' weight={500}>
+        <FormattedMessage
+          id='modals.withdraw.success'
+          defaultMessage='Success! We are withdrawing the cash from your {currency} Wallet now. The funds should be in your bank in 1-3 business days.'
+          values={{
+            currency: fiatCurrency
+          }}
+        />
+      </SubTitle>
+      <Button
+        fullwidth
+        height='48px'
+        data-e2e='withdrawReload'
+        nature='primary'
+        size='16px'
+        onClick={handleClose}
+      >
+        <FormattedMessage id='buttons.close' defaultMessage='Close' />
+      </Button>
+    </div>
+  </Wrapper>
+)
 
 type OwnProps = {
   fiatCurrency: WalletFiatType

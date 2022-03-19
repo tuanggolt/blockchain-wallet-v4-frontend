@@ -2,26 +2,19 @@ import React from 'react'
 import { FormattedMessage } from 'react-intl'
 import { LinkContainer } from 'react-router-bootstrap'
 import { Cartridge } from '@blockchain-com/components'
-import { map, toLower } from 'ramda'
 import styled from 'styled-components'
 
-import { Text, TooltipHost, TooltipIcon } from 'blockchain-info-components'
-import { SupportedCoinType } from 'blockchain-wallet-v4/src/types'
-import {
-  CoinIcon,
-  Destination,
-  MenuIcon,
-  MenuItem,
-  Separator,
-  Wrapper
-} from 'layouts/Wallet/components'
+import { TooltipHost, TooltipIcon } from 'blockchain-info-components'
+import { Destination, MenuIcon, MenuItem, Separator, Wrapper } from 'layouts/Wallet/components'
 
 import { Props } from '.'
+import Loading from './CoinList/template.loading'
+import Success from './CoinList/template.success'
 
 const HelperTipContainer = styled.div`
   position: relative;
   > div span {
-    color: ${props => props.theme['grey400']};
+    color: ${(props) => props.theme.grey400};
   }
 `
 const HelperTip = styled(TooltipHost)`
@@ -29,54 +22,36 @@ const HelperTip = styled(TooltipHost)`
   left: 74px;
   top: -8px;
 `
+const SeparatorWrapper = styled.div<{ margin?: string }>`
+  width: calc(100% - 32px);
+  margin: ${(props) => (props.margin ? props.margin : '8px 16px')};
+  box-sizing: border-box;
+`
 export const NewCartridge = styled(Cartridge)`
-  color: ${props => props.theme.orange600} !important;
-  background-color: ${props => props.theme.white};
+  color: ${(props) => props.theme.blue600};
+  background-color: ${(props) => props.theme.white};
   letter-spacing: 1px;
   margin-left: auto;
   margin-right: -4px;
   padding: 4px 4px;
-  border: 1px solid ${props => props.theme.grey000};
+  border: 1px solid ${(props) => props.theme.grey000};
   border-radius: 4px;
 `
-const PortfolioSeparator = styled.div`
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  margin-left: 16px;
-  margin-bottom: 4px;
-  width: calc(100% - 16px);
-  box-sizing: content-box;
-`
-const SeparatorWrapper = styled.div<{ margin?: string }>`
-  width: calc(100% - 32px);
-  margin: ${props => (props.margin ? props.margin : '8px 16px')};
-  box-sizing: border-box;
-`
-
-type OwnProps = {
-  exchangeUrl: string
-}
-
-const Divider = (props: { margin?: string }) => (
+export const Divider = (props: { margin?: string }) => (
   <SeparatorWrapper {...props}>
     <Separator />
   </SeparatorWrapper>
 )
 
-const ExchangeNavItem = props => (
+type OwnProps = {
+  exchangeUrl: string
+}
+
+const ExchangeNavItem = (props) => (
   <>
-    <MenuIcon
-      className='icon'
-      name='blockchain-logo'
-      style={{ marginLeft: '-2px' }}
-      size='21px'
-    />
+    <MenuIcon className='icon' name='blockchain-logo' style={{ marginLeft: '-2px' }} size='21px' />
     <Destination style={{ marginLeft: '2px' }}>
-      <FormattedMessage
-        id='layouts.wallet.menuleft.navigation.blockchain-exchange-1'
-        defaultMessage='Exchange'
-      />
+      <FormattedMessage id='copy.exchange' defaultMessage='Exchange' />
     </Destination>
     {props.isExchangeAccountLinked && (
       <HelperTipContainer>
@@ -88,77 +63,61 @@ const ExchangeNavItem = props => (
   </>
 )
 
+const DebitCardNavItem = () => (
+  <>
+    <MenuIcon className='icon' name='credit-card-sb' style={{ marginLeft: '-4px' }} size='21px' />
+    <Destination style={{ marginLeft: '2px' }}>
+      <FormattedMessage id='copy.debit_card' defaultMessage='Debit Card' />
+    </Destination>
+  </>
+)
+
 const Navigation = (props: OwnProps & Props) => {
-  const { coinList, lockboxDevices, ...rest } = props
+  const { coinList, isRedesignEnabled, lockboxDevices, walletDebitCardEnabled, ...rest } = props
 
   return (
     <Wrapper {...rest}>
-      <Divider />
-      <LinkContainer to='/home' activeClassName='active'>
-        <MenuItem data-e2e='dashboardLink'>
-          <MenuIcon className='icon' name='home' size='24px' />
-          <Destination>
-            <FormattedMessage id='copy.home' defaultMessage='Home' />
-          </Destination>
-        </MenuItem>
-      </LinkContainer>
-      <LinkContainer to='/prices' activeClassName='active'>
-        <MenuItem data-e2e='pricesLink'>
-          <MenuIcon className='icon' name='compass' size='24px' />
-          <Destination>
-            <FormattedMessage id='copy.prices' defaultMessage='Prices' />
-          </Destination>
-        </MenuItem>
-      </LinkContainer>
+      {!isRedesignEnabled && (
+        <>
+          <Divider />
+          <LinkContainer to='/home' activeClassName='active'>
+            <MenuItem data-e2e='dashboardLink'>
+              <MenuIcon className='icon' name='home' size='24px' />
+              <Destination>
+                <FormattedMessage id='copy.home' defaultMessage='Home' />
+              </Destination>
+            </MenuItem>
+          </LinkContainer>
+          <LinkContainer to='/prices' activeClassName='active'>
+            <MenuItem data-e2e='pricesLink'>
+              <MenuIcon className='icon' name='compass' size='24px' />
+              <Destination>
+                <FormattedMessage id='copy.prices' defaultMessage='Prices' />
+              </Destination>
+            </MenuItem>
+          </LinkContainer>
+        </>
+      )}
       {coinList.cata({
-        Success: coinList =>
-          coinList.length ? (
-            <>
-              <PortfolioSeparator>
-                <Text
-                  color='grey600'
-                  lineHeight='20px'
-                  weight={600}
-                  size='14px'
-                >
-                  <FormattedMessage
-                    id='copy.portfolio'
-                    defaultMessage='Portfolio'
-                  />
-                </Text>
-                <Divider />
-              </PortfolioSeparator>
-              {map(
-                (coin: SupportedCoinType) => (
-                  <LinkContainer
-                    to={coin.txListAppRoute}
-                    activeClassName='active'
-                    key={coin.coinCode}
-                  >
-                    <MenuItem
-                      data-e2e={`${toLower(coin.coinCode)}Link`}
-                      colorCode={coin.coinCode}
-                      className='coin'
-                    >
-                      <CoinIcon
-                        className='coin-icon'
-                        color={coin.coinCode}
-                        name={coin.coinCode}
-                        size='24px'
-                      />
-                      <Destination>{coin.displayName}</Destination>
-                    </MenuItem>
-                  </LinkContainer>
-                ),
-                coinList
-              )}
-            </>
-          ) : null,
-        Loading: () => null,
-        NotAsked: () => null,
-        Failure: () => null
+        Failure: () => null,
+        Loading: () => <Loading />,
+        NotAsked: () => <Loading />,
+        Success: (coinList) => <Success coinList={coinList} />
       })}
       <Divider margin='0 16px 8px 16px' />
+      {walletDebitCardEnabled && (
+        <LinkContainer to='/debitCard' activeClassName='active'>
+          <MenuItem data-e2e='debitCardLink'>
+            <DebitCardNavItem />
+            <NewCartridge style={{ textTransform: 'uppercase' }}>
+              <FormattedMessage
+                id='layouts.wallet.menuleft.navigation.debit_card.order'
+                defaultMessage='order'
+              />
+            </NewCartridge>
+          </MenuItem>
+        </LinkContainer>
+      )}
       <LinkContainer to='/airdrops' activeClassName='active'>
         <MenuItem data-e2e='airdropLink' className='airdrop'>
           <MenuIcon className='icon' name='parachute' size='24px' />
@@ -187,12 +146,7 @@ const Navigation = (props: OwnProps & Props) => {
       {lockboxDevices?.length > 0 ? (
         <LinkContainer to='/lockbox' activeClassName='active'>
           <MenuItem data-e2e='lockboxLink'>
-            <MenuIcon
-              className='icon'
-              name='hardware'
-              style={{ paddingLeft: '2px' }}
-              size='24px'
-            />
+            <MenuIcon className='icon' name='hardware' style={{ paddingLeft: '2px' }} size='24px' />
             <Destination style={{ marginLeft: '-2px' }}>
               <FormattedMessage
                 id='layouts.wallet.menuleft.navigation.hardware'

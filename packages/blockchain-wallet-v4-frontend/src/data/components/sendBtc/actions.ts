@@ -1,24 +1,30 @@
-import { PaymentValue } from 'blockchain-wallet-v4/src/types'
+import {
+  CoinType,
+  CrossBorderLimits,
+  PaymentValue,
+  WalletAccountType,
+  WalletFiatType
+} from '@core/types'
 
 import * as AT from './actionTypes'
 
-export const initialized = payload => ({
-  type: AT.SEND_BTC_INITIALIZED,
-  payload
+export const initialized = (payload) => ({
+  payload,
+  type: AT.SEND_BTC_INITIALIZED
 })
 
 export const destroyed = () => ({ type: AT.SEND_BTC_DESTROYED })
 
 export const sendBtcPaymentUpdatedSuccess = (payment: PaymentValue) => ({
-  type: AT.SEND_BTC_PAYMENT_UPDATED_SUCCESS,
-  payload: payment
+  payload: payment,
+  type: AT.SEND_BTC_PAYMENT_UPDATED_SUCCESS
 })
 export const sendBtcPaymentUpdatedLoading = () => ({
   type: AT.SEND_BTC_PAYMENT_UPDATED_LOADING
 })
-export const sendBtcPaymentUpdatedFailure = err => ({
-  type: AT.SEND_BTC_PAYMENT_UPDATED_FAILURE,
-  payload: err
+export const sendBtcPaymentUpdatedFailure = (err) => ({
+  payload: err,
+  type: AT.SEND_BTC_PAYMENT_UPDATED_FAILURE
 })
 
 export const sendBtcFirstStepFeePerByteToggled = () => ({
@@ -63,4 +69,34 @@ export const sendBtcSecondStepCancelClicked = () => ({
 
 export const sendBtcBitPayInvoiceExpired = () => ({
   type: AT.SEND_BTC_BITPAY_INVOICE_EXPIRED
+})
+
+export const sendBtcFetchLimits = (
+  inputCurrency: CoinType,
+  fromAccount: WalletAccountType,
+  outputCurrency: CoinType,
+  toAccount: WalletAccountType,
+  currency?: WalletFiatType
+) => ({
+  payload: {
+    currency,
+    fromAccount,
+    inputCurrency,
+    outputCurrency,
+    toAccount
+  },
+  type: AT.SEND_BTC_FETCH_LIMITS
+})
+export const sendBtcFetchLimitsFailure = (error: string) => ({
+  payload: {
+    error
+  },
+  type: AT.SEND_BTC_FETCH_LIMITS_FAILURE
+})
+export const sendBtcFetchLimitsLoading = () => ({
+  type: AT.SEND_BTC_FETCH_LIMITS_LOADING
+})
+export const sendBtcFetchLimitsSuccess = (limitsResponse: CrossBorderLimits) => ({
+  payload: limitsResponse,
+  type: AT.SEND_BTC_FETCH_LIMITS_SUCCESS
 })

@@ -1,15 +1,12 @@
-import { RemoteDataType, WalletFiatType } from 'core/types'
+import { RemoteDataType, WalletFiatType } from '@core/types'
 
-import { FiatSBAndSwapTransactionType } from '../custodial/types'
+import { FiatBSAndSwapTransactionType } from '../custodial/types'
 import * as AT from './actionTypes'
 
 // state
 export type FiatStateType = {
   [key in WalletFiatType]?: {
-    nextSbTxId: RemoteDataType<
-      string | undefined,
-      FiatTransactionPageResponseType['nextSbTxId']
-    >
+    nextSbTxId: RemoteDataType<string | undefined, FiatTransactionPageResponseType['nextSbTxId']>
     nextSbTxTimestamp: RemoteDataType<
       string | undefined,
       FiatTransactionPageResponseType['nextSbTxTimestamp']
@@ -45,7 +42,7 @@ export type FiatTransactionPageResponseType = {
   nextSbTxId?: string
   nextSbTxTimestamp?: string
   nextSwapPageTimestamp?: string
-  page: Array<FiatSBAndSwapTransactionType>
+  page: Array<FiatBSAndSwapTransactionType>
 }
 
 export type FiatActionTypes =

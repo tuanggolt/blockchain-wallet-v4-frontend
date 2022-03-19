@@ -1,13 +1,14 @@
 import { assoc } from 'ramda'
 
-import { Remote } from 'blockchain-wallet-v4/src'
+import { Remote } from '@core'
 
 import * as AT from './actionTypes'
 import { SendBchState } from './types'
 
 const INITIAL_STATE: SendBchState = {
-  step: 1,
-  payment: Remote.NotAsked
+  payment: Remote.NotAsked,
+  sendLimits: Remote.NotAsked,
+  step: 1
 }
 
 export function sendBchReducer(state = INITIAL_STATE, action) {
@@ -30,6 +31,15 @@ export function sendBchReducer(state = INITIAL_STATE, action) {
     }
     case AT.SEND_BCH_SECOND_STEP_CANCEL_CLICKED: {
       return assoc('step', 1, state)
+    }
+    case AT.SEND_BCH_FETCH_LIMITS_LOADING: {
+      return assoc('sendLimits', Remote.Loading, state)
+    }
+    case AT.SEND_BCH_FETCH_LIMITS_SUCCESS: {
+      return assoc('sendLimits', Remote.Success(action.payload), state)
+    }
+    case AT.SEND_BCH_FETCH_LIMITS_FAILURE: {
+      return assoc('sendLimits', Remote.Failure(action.payload), state)
     }
     default:
       return state

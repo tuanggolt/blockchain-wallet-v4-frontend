@@ -4,6 +4,9 @@ import { connect, ConnectedProps } from 'react-redux'
 import { bindActionCreators, compose, Dispatch } from 'redux'
 import { Field, InjectedFormProps, reduxForm } from 'redux-form'
 
+import { Exchange } from '@core'
+import { fiatToString, formatFiat } from '@core/exchange/utils'
+import { CoinType, DepositLimits } from '@core/types'
 import {
   Button,
   Icon,
@@ -13,23 +16,23 @@ import {
   TooltipHost,
   TooltipIcon
 } from 'blockchain-info-components'
-import { Exchange } from 'blockchain-wallet-v4/src'
-import { fiatToString, formatFiat } from 'blockchain-wallet-v4/src/exchange/currency'
+import { FlyoutWrapper } from 'components/Flyout'
 import { CheckBox, CoinBalanceDropdown, NumberBox } from 'components/Form'
 import { actions, selectors } from 'data'
 import { InterestDepositFormType } from 'data/components/interest/types'
 import { RootState } from 'data/rootReducer'
+import { Analytics, SwapBaseCounterTypes } from 'data/types'
 import { required } from 'services/forms'
+import { debounce } from 'utils/helpers'
 
 import { amountToCrypto, amountToFiat, calcCompoundInterest, maxFiat } from '../conversions'
-import { CartrigeText, CustomOrangeCartridge } from '../WithdrawalForm/model'
+import { CustomOrangeCartridge } from '../WithdrawalForm/model'
 import { CurrencySuccessStateType, DataSuccessStateType, OwnProps as ParentOwnProps } from '.'
 import {
   AgreementContainer,
   AmountError,
   AmountFieldContainer,
   ArrowIcon,
-  Bottom,
   ButtonContainer,
   CalculatorContainer,
   CalculatorDesc,
@@ -51,14 +54,30 @@ import {
   ToggleCoinFiat,
   ToggleCoinText,
   ToggleFiatText,
-  Top,
   TopText
 } from './model'
 import TabMenuTimeFrame from './TabMenuTimeFrame'
 import { maxDepositAmount, minDepositAmount } from './validation'
 
+const checkIsAmountUnderDepositLimit = (
+  interestDepositLimits: DepositLimits,
+  coin: CoinType,
+  depositAmount: string
+): boolean => {
+  const { depositLimits } = interestDepositLimits
+
+  if (!depositLimits || depositLimits.length === 0) {
+    return false
+  }
+
+  const coinLimit = depositLimits.find((dep) => dep.savingsCurrency === coin)?.amount || 0
+  // compare entered amount with deposit limit for current coin
+  return Number(depositAmount) > coinLimit
+}
+
 const DepositForm: React.FC<InjectedFormProps<{ form: string }, Props> & Props> = (props) => {
   const {
+    analyticsActions,
     coin,
     depositLimits,
     displayCoin,
@@ -67,40 +86,20 @@ const DepositForm: React.FC<InjectedFormProps<{ form: string }, Props> & Props> 
     formActions,
     formErrors,
     handleDisplayToggle,
+    interestAccount,
     interestActions,
-    interestEDDWithdrawLimits,
+    interestEDDDepositLimits,
+    interestEDDStatus,
     interestLimits,
     interestRate,
     invalid,
     payment,
     rates,
     submitting,
-    supportedCoins,
     values,
     walletCurrency
   } = props
-  const { coinTicker, displayName } = supportedCoins[coin]
-
-  if (submitting) {
-    return (
-      <SendingWrapper>
-        <SpinningLoader />
-        <Text weight={600} color='grey800' size='20px' style={{ marginTop: '24px' }}>
-          <FormattedMessage
-            id='modals.interest.deposit.sendingtitle'
-            defaultMessage='In Progress...'
-          />
-        </Text>
-        <Text weight={600} color='grey600' size='16px' style={{ marginTop: '24px' }}>
-          <FormattedMessage
-            id='modals.interest.deposit.sendingsubtitle'
-            defaultMessage='Sending {displayName} to your Interest Account'
-            values={{ displayName }}
-          />
-        </Text>
-      </SendingWrapper>
-    )
-  }
+  const { coinfig } = window.coins[coin]
 
   const currencySymbol = Exchange.getSymbol(walletCurrency) as string
   const depositAmount = (values && values.depositAmount) || '0'
@@ -117,38 +116,82 @@ const DepositForm: React.FC<InjectedFormProps<{ form: string }, Props> & Props> 
   )
 
   const loanTimeFrame = values && values.loanTimeFrame
-
   const lockUpDuration = interestLimits[coin]?.lockUpDuration || 7200
   const lockupPeriod = lockUpDuration / 86400
   const maxDepositFiat = maxFiat(depositLimits.maxFiat, walletCurrency)
+
+  const fromAccountType =
+    interestAccount?.type === SwapBaseCounterTypes.CUSTODIAL ? 'TRADING' : 'USERKEY'
 
   const depositAmountError =
     formErrors.depositAmount &&
     typeof formErrors.depositAmount === 'string' &&
     formErrors.depositAmount
-  const isErc20 = !!supportedCoins[coin].contractAddress
+  const isErc20 = !!window.coins[coin].coinfig.type.erc20Address
   const insufficientEth =
     payment &&
-    !!supportedCoins[coin]?.contractAddress &&
-    !!supportedCoins[payment.coin]?.contractAddress &&
+    isErc20 &&
+    !!window.coins[coin].coinfig.type.erc20Address &&
     // @ts-ignore
     !payment.isSufficientEthForErc20
 
-  const showEDDWithdrawLimit = interestEDDWithdrawLimits?.withdrawLimits
-    ? Number(depositAmountFiat) > Number(interestEDDWithdrawLimits?.withdrawLimits.amount)
-    : false
+  const showEDDDepositLimit =
+    checkIsAmountUnderDepositLimit(interestEDDDepositLimits, coin, depositAmountFiat) &&
+    !interestEDDStatus?.eddSubmitted &&
+    !interestEDDStatus?.eddPassed
 
   const handleFormSubmit = () => {
-    props.interestActions.submitDepositForm(coin)
-    props.setShowSupply(showEDDWithdrawLimit)
+    interestActions.submitDepositForm(coin)
+    props.setShowSupply(showEDDDepositLimit)
+
+    analyticsActions.trackEvent({
+      key: Analytics.INTEREST_CLIENT_SUBMIT_INFORMATION_CLICKED,
+      properties: {}
+    })
+  }
+
+  const amountChanged = (e) => {
+    analyticsActions.trackEvent({
+      key: Analytics.INTEREST_CLIENT_DEPOSIT_AMOUNT_ENTERED,
+      properties: {
+        amount: Number(e.target.value),
+        amount_currency: coin,
+        currency: walletCurrency,
+        from_account_type: fromAccountType,
+        input_amount: Number(values.depositAmount),
+        interest_rate: Number(interestRate[coin]),
+        output_amount: Number
+      }
+    })
+  }
+
+  if (submitting) {
+    return (
+      <SendingWrapper>
+        <SpinningLoader />
+        <Text weight={600} color='grey800' size='20px' style={{ marginTop: '24px' }}>
+          <FormattedMessage
+            id='modals.interest.deposit.sendingtitle'
+            defaultMessage='In Progress...'
+          />
+        </Text>
+        <Text weight={600} color='grey600' size='16px' style={{ marginTop: '24px' }}>
+          <FormattedMessage
+            id='modals.interest.deposit.sendingsubtitle'
+            defaultMessage='Sending {displayName} to your Rewards Account'
+            values={{ displayName: coinfig.displaySymbol }}
+          />
+        </Text>
+      </SendingWrapper>
+    )
   }
 
   return (
     <CustomForm onSubmit={handleFormSubmit}>
-      <Top>
+      <FlyoutWrapper style={{ paddingBottom: '0' }}>
         <TopText color='grey800' size='20px' weight={600}>
           <ArrowIcon
-            onClick={() => interestActions.setInterestStep('ACCOUNT_SUMMARY')}
+            onClick={() => interestActions.setInterestStep({ name: 'ACCOUNT_SUMMARY' })}
             cursor
             role='button'
             name='arrow-left'
@@ -158,7 +201,7 @@ const DepositForm: React.FC<InjectedFormProps<{ form: string }, Props> & Props> 
           <FormattedMessage
             id='modals.interest.deposit.title_transfer'
             defaultMessage='Transfer {displayName}'
-            values={{ displayName }}
+            values={{ displayName: coinfig.name }}
           />
         </TopText>
         <InfoText>
@@ -170,9 +213,9 @@ const DepositForm: React.FC<InjectedFormProps<{ form: string }, Props> & Props> 
           >
             <FormattedMessage
               id='modals.interest.deposit.subheader_transfer'
-              defaultMessage='Transfer {displayName} to your Interest Account and earn up to {rate}% interest annually on your crypto.'
+              defaultMessage='Transfer {displayName} to your Rewards Account and earn up to {rate}% in rewards annually on your crypto.'
               values={{
-                displayName,
+                displayName: coinfig.name,
                 rate: interestRate[coin]
               }}
             />{' '}
@@ -182,7 +225,7 @@ const DepositForm: React.FC<InjectedFormProps<{ form: string }, Props> & Props> 
                   id='modals.interest.deposit.youcantransfer'
                   defaultMessage='You can transfer up to'
                   values={{
-                    coin: coinTicker
+                    coin
                   }}
                 />{' '}
                 <FiatMaxContainer
@@ -208,7 +251,7 @@ const DepositForm: React.FC<InjectedFormProps<{ form: string }, Props> & Props> 
                   id='modals.interest.deposit.uptoamount2'
                   defaultMessage='of {coin} from this wallet.'
                   values={{
-                    coin: coinTicker
+                    coin: coinfig.displaySymbol
                   }}
                 />
                 <TooltipHost id='modals.interest.depositmax.tooltip'>
@@ -224,7 +267,7 @@ const DepositForm: React.FC<InjectedFormProps<{ form: string }, Props> & Props> 
             <FormattedMessage
               id='modals.interest.deposit.notenougheth'
               defaultMessage='ETH is required to send {coinTicker}. You do not have enough ETH to perform a transaction.'
-              values={{ coinTicker }}
+              values={{ coinTicker: coin }}
             />
           </ErrorText>
         )}
@@ -255,7 +298,7 @@ const DepositForm: React.FC<InjectedFormProps<{ form: string }, Props> & Props> 
               onClick={() => handleDisplayToggle(true)}
               data-e2e='toggleCoin'
             >
-              {coinTicker}
+              {coinfig.displaySymbol}
             </ToggleCoinText>
           </ToggleCoinFiat>
         </CustomFormLabel>
@@ -274,11 +317,14 @@ const DepositForm: React.FC<InjectedFormProps<{ form: string }, Props> & Props> 
               errorBottom: true,
               errorLeft: true
             }}
+            onChange={debounce((event) => {
+              amountChanged(event)
+            }, 500)}
           />
           <PrincipalCcyAbsolute>
             {displayCoin ? (
               <Text color='grey800' size='14px' weight={600}>
-                {coinTicker}
+                {coin}
               </Text>
             ) : (
               <Text color='grey800' size='14px' weight={600}>
@@ -289,75 +335,89 @@ const DepositForm: React.FC<InjectedFormProps<{ form: string }, Props> & Props> 
         </AmountFieldContainer>
         {depositAmountError && (
           <AmountError>
-            <Text size='14px' weight={500} color='red600'>
-              {depositAmountError === 'ABOVE_MAX' ? (
-                <FormattedMessage
-                  id='modals.interest.deposit.maxtransfer'
-                  defaultMessage='Maximum transfer: {maxFiat}'
-                  values={{
-                    maxFiat: displayCoin
-                      ? depositLimits.maxCoin
-                      : fiatToString({
-                          unit: walletCurrency,
-                          value: depositLimits.maxFiat
-                        })
+            {depositAmountError === 'ABOVE_MAX' ? (
+              <>
+                <Text size='14px' weight={500} color='red600'>
+                  <FormattedMessage
+                    id='modals.interest.deposit.maxtransfer'
+                    defaultMessage='Maximum transfer: {maxFiat}'
+                    values={{
+                      maxFiat: displayCoin
+                        ? depositLimits.maxCoin
+                        : fiatToString({
+                            unit: walletCurrency,
+                            value: depositLimits.maxFiat
+                          })
+                    }}
+                  />
+                </Text>
+                <GreyBlueCartridge
+                  data-e2e='interestMax'
+                  role='button'
+                  onClick={() => {
+                    interestActions.handleTransferMaxAmountClick({
+                      amount: displayCoin ? depositLimits.maxCoin : depositLimits.maxFiat,
+                      coin: displayCoin || walletCurrency
+                    })
+
+                    analyticsActions.trackEvent({
+                      key: Analytics.INTEREST_CLIENT_DEPOSIT_MAX_AMOUNT_CLICKED,
+                      properties: {
+                        amount_currency: coin,
+                        currency: walletCurrency,
+                        from_account_type: fromAccountType
+                      }
+                    })
                   }}
-                />
-              ) : (
-                <FormattedMessage
-                  id='modals.interest.deposit.mintransfer'
-                  defaultMessage='Minimum transfer: {minFiat}'
-                  values={{
-                    minFiat: displayCoin
-                      ? depositLimits.minCoin
-                      : fiatToString({
-                          unit: walletCurrency,
-                          value: depositLimits.minFiat
-                        })
-                  }}
-                />
-              )}
-            </Text>
-            <GreyBlueCartridge
-              data-e2e='interestBuyMinMaxBtn'
-              role='button'
-              onClick={() =>
-                depositAmountError === 'ABOVE_MAX'
-                  ? formActions.change(
-                      FORM_NAME,
-                      'depositAmount',
-                      displayCoin ? depositLimits.maxCoin : depositLimits.maxFiat
-                    )
-                  : formActions.change(
-                      FORM_NAME,
-                      'depositAmount',
-                      displayCoin ? depositLimits.minCoin : depositLimits.minFiat
-                    )
-              }
-            >
-              {depositAmountError === 'ABOVE_MAX' ? (
-                <FormattedMessage
-                  id='modals.interest.deposit.maxtransfer.button'
-                  defaultMessage='Transfer Max'
-                />
-              ) : (
-                <FormattedMessage
-                  id='modals.interest.deposit.mintransfer.button'
-                  defaultMessage='Transfer Min'
-                />
-              )}
-            </GreyBlueCartridge>
+                >
+                  <FormattedMessage
+                    id='modals.interest.deposit.maxtransfer.button'
+                    defaultMessage='Transfer Max'
+                  />
+                </GreyBlueCartridge>
+              </>
+            ) : (
+              <>
+                <Text size='14px' weight={500} color='red600'>
+                  <FormattedMessage
+                    id='modals.interest.deposit.mintransfer'
+                    defaultMessage='Minimum transfer: {minFiat}'
+                    values={{
+                      minFiat: displayCoin
+                        ? depositLimits.minCoin
+                        : fiatToString({
+                            unit: walletCurrency,
+                            value: depositLimits.minFiat
+                          })
+                    }}
+                  />
+                </Text>
+                <GreyBlueCartridge
+                  data-e2e='interestMin'
+                  role='button'
+                  onClick={() =>
+                    interestActions.handleTransferMinAmountClick({
+                      amount: displayCoin ? depositLimits.minCoin : depositLimits.minFiat,
+                      coin: displayCoin || walletCurrency
+                    })
+                  }
+                >
+                  <FormattedMessage
+                    id='modals.interest.deposit.mintransfer.button'
+                    defaultMessage='Transfer Min'
+                  />
+                </GreyBlueCartridge>
+              </>
+            )}
           </AmountError>
         )}
-        {showEDDWithdrawLimit && (
+        {showEDDDepositLimit && (
           <CustomOrangeCartridge>
             <Icon name='info' color='orange600' size='18px' style={{ marginRight: '12px' }} />
-            <CartrigeText>
-              <FormattedMessage
-                id='modals.interest.deposit.edd_need'
-                defaultMessage="Transferring this amount requires further verification. We'll ask you for those details in the next step."
-              />
-            </CartrigeText>
+            <FormattedMessage
+              id='modals.interest.deposit.edd_need'
+              defaultMessage="Transferring this amount requires further verification. We'll ask you for those details in the next step."
+            />
           </CustomOrangeCartridge>
         )}
         <CalculatorWrapper>
@@ -365,7 +425,7 @@ const DepositForm: React.FC<InjectedFormProps<{ form: string }, Props> & Props> 
             <Text color='grey800' weight={600}>
               <FormattedMessage
                 id='modals.interest.deposit.calc'
-                defaultMessage='Interest Calculator'
+                defaultMessage='Rewards Calculator'
               />
             </Text>
             <TooltipHost id='modals.interest.calculator.tooltip'>
@@ -376,13 +436,13 @@ const DepositForm: React.FC<InjectedFormProps<{ form: string }, Props> & Props> 
             {displayCoin ? (
               <FormattedMessage
                 id='modals.interest.deposit.calcdesccoin'
-                defaultMessage='With {depositAmount} {coinTicker} in your Interest Account you can earn:'
-                values={{ coinTicker, depositAmount }}
+                defaultMessage='With {depositAmount} {coinTicker} in your Rewards Account you can earn:'
+                values={{ coinTicker: coin, depositAmount }}
               />
             ) : (
               <FormattedMessage
                 id='modals.interest.deposit.calcdesc'
-                defaultMessage='With {currencySymbol} {depositAmountFiat} in your Interest Account you can earn:'
+                defaultMessage='With {currencySymbol} {depositAmountFiat} in your Rewards Account you can earn:'
                 values={{
                   currencySymbol,
                   depositAmountFiat: formatFiat(depositAmountFiat)
@@ -470,14 +530,21 @@ const DepositForm: React.FC<InjectedFormProps<{ form: string }, Props> & Props> 
             <Text size='11px' weight={400} style={{ marginTop: '6px' }}>
               <FormattedMessage
                 id='modals.interest.deposit.calcrate'
-                defaultMessage='Estimates based on current interest rate and {coinTicker} price.'
-                values={{ coinTicker }}
+                defaultMessage='Estimates based on current rewards rate and {coinTicker} price.'
+                values={{ coinTicker: coinfig.displaySymbol }}
               />
             </Text>
           </CalculatorContainer>
         </CalculatorWrapper>
-      </Top>
-      <Bottom>
+      </FlyoutWrapper>
+      <FlyoutWrapper
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+          justifyContent: 'flex-end'
+        }}
+      >
         <Field component={CheckBox} hideErrors name='terms' validate={[required]}>
           <TermsContainer>
             <Text lineHeight='1.4' size='14px' weight={500}>
@@ -487,7 +554,7 @@ const DepositForm: React.FC<InjectedFormProps<{ form: string }, Props> & Props> 
               />
             </Text>{' '}
             <Link
-              href='https://www.blockchain.com/legal/borrow-terms'
+              href='https://www.blockchain.com/legal/reward-terms'
               target='_blank'
               size='14px'
               weight={500}
@@ -517,24 +584,26 @@ const DepositForm: React.FC<InjectedFormProps<{ form: string }, Props> & Props> 
               {isCustodial ? (
                 <FormattedMessage
                   id='modals.interest.deposit.agreement.custodial1'
-                  defaultMessage='By accepting this, you agree to transfer {depositAmountFiat} ({depositAmountCrypto}) from your {displayName} Trading Account to your Interest Account. An initial hold period of {lockupPeriod} days will be applied to your funds.'
+                  defaultMessage='By accepting this, you agree to transfer {depositAmountFiat} ({depositAmountCrypto}) from your {displayName} Trading Account to your Rewards Account. An initial hold period of {lockupPeriod} days will be applied to your funds.'
                   values={{
-                    depositAmountCrypto: `${depositAmountCrypto} ${coinTicker}`,
+                    depositAmountCrypto: `${depositAmountCrypto} ${coinfig.displaySymbol}`,
                     depositAmountFiat: `${currencySymbol}${formatFiat(depositAmountFiat)}`,
-                    displayName,
+                    displayName: coinfig.name,
                     lockupPeriod
                   }}
                 />
               ) : (
                 <FormattedMessage
                   id='modals.interest.deposit.agreement2'
-                  defaultMessage='By accepting this, you agree to transfer {depositAmountFiat} ({depositAmountCrypto}) plus a network fee of ~{depositFeeFiat} ({depositFeeCrypto}) from your {displayName} Wallet to your Interest Account. An initial hold period of {lockupPeriod} days will be applied to your funds.'
+                  defaultMessage='By accepting this, you agree to transfer {depositAmountFiat} ({depositAmountCrypto}) plus a network fee of ~{depositFeeFiat} ({depositFeeCrypto}) from your {displayName} Wallet to your Rewards Account. An initial hold period of {lockupPeriod} days will be applied to your funds.'
                   values={{
-                    depositAmountCrypto: `${depositAmountCrypto} ${coinTicker}`,
+                    depositAmountCrypto: `${depositAmountCrypto} ${coinfig.displaySymbol}`,
                     depositAmountFiat: `${currencySymbol}${formatFiat(depositAmountFiat)}`,
-                    depositFeeCrypto: isErc20 ? `${feeCrypto} ETH` : `${feeCrypto} ${coinTicker}`,
+                    depositFeeCrypto: isErc20
+                      ? `${feeCrypto} ETH`
+                      : `${feeCrypto} ${coinfig.displaySymbol}`,
                     depositFeeFiat: `${currencySymbol}${formatFiat(Number(feeFiat))}`,
-                    displayName,
+                    displayName: coinfig.name,
                     lockupPeriod
                   }}
                 />
@@ -559,7 +628,7 @@ const DepositForm: React.FC<InjectedFormProps<{ form: string }, Props> & Props> 
             </Text>
           </Button>
         </ButtonContainer>
-      </Bottom>
+      </FlyoutWrapper>
     </CustomForm>
   )
 }
@@ -569,6 +638,7 @@ const mapStateToProps = (state: RootState): LinkStatePropsType => ({
 })
 
 const mapDispatchToProps = (dispatch: Dispatch) => ({
+  analyticsActions: bindActionCreators(actions.analytics, dispatch),
   formActions: bindActionCreators(actions.form, dispatch),
   interestActions: bindActionCreators(actions.components.interest, dispatch)
 })

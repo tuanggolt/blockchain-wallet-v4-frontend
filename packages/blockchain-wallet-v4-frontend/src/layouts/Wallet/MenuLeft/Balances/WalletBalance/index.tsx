@@ -3,6 +3,7 @@ import { connect, ConnectedProps } from 'react-redux'
 import { prop } from 'ramda'
 import { bindActionCreators } from 'redux'
 
+import { getCoinsSortedByBalance } from 'components/Balances/selectors'
 import { actions, selectors } from 'data'
 
 import Template from './template'
@@ -10,7 +11,6 @@ import Template from './template'
 class WalletBalanceContainer extends React.PureComponent<Props> {
   render() {
     const { coins, preferencesActions, totalBalancesDropdown } = this.props
-    // @ts-ignore
     const isActive = prop('wallet', totalBalancesDropdown)
     return (
       <Template
@@ -27,15 +27,12 @@ class WalletBalanceContainer extends React.PureComponent<Props> {
   }
 }
 
-const mapStateToProps = state => ({
-  totalBalancesDropdown: selectors.preferences.getTotalBalancesDropdown(state),
-  coins: selectors.components.utils
-    .getSupportedCoinsWithMethodAndOrder(state)
-    // @ts-ignore
-    .getOrElse({})
+const mapStateToProps = (state) => ({
+  coins: getCoinsSortedByBalance(state).getOrElse([]),
+  totalBalancesDropdown: selectors.preferences.getTotalBalancesDropdown(state)
 })
 
-const mapDispatchToProps = dispatch => ({
+const mapDispatchToProps = (dispatch) => ({
   preferencesActions: bindActionCreators(actions.preferences, dispatch)
 })
 

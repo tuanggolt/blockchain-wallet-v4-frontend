@@ -2,12 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
-import {
-  Icon,
-  PasswordGauge,
-  PasswordInput,
-  Text
-} from 'blockchain-info-components'
+import { Icon, PasswordGauge, PasswordInput, Text } from 'blockchain-info-components'
 
 const Container = styled.div`
   position: relative;
@@ -17,7 +12,6 @@ const Container = styled.div`
   align-items: flex-start;
   width: 100%;
 `
-
 const PasswordContainer = styled.div`
   border-radius: 8px;
   overflow: hidden;
@@ -30,7 +24,6 @@ const Error = styled(Text)`
   top: -20px;
   right: 0;
 `
-
 const WarningIcon = styled(Icon)`
   position: absolute;
   margin: auto 0;
@@ -42,14 +35,16 @@ const getErrorState = ({ invalid, touched }) => {
   return touched && invalid ? 'invalid' : 'initial'
 }
 
-const PasswordBox = field => {
+const PasswordBox = (field) => {
   const {
+    autoFocus,
     borderColor,
     disabled,
     input,
     meta,
     noLastPass,
     passwordScore,
+    placeholder,
     showPasswordScore
   } = field
   const { active, error, touched } = meta
@@ -61,28 +56,23 @@ const PasswordBox = field => {
       <PasswordContainer>
         <PasswordInput
           {...input}
+          autoFocus={autoFocus}
           disabled={disabled}
           active={active}
           controlledBorderColor={borderColor}
           errorState={errorState}
           data-e2e={field['data-e2e']}
           noLastPass={noLastPass}
+          placeholder={placeholder}
         />
         {scoreVisible && <PasswordGauge score={passwordScore + 1} />}
       </PasswordContainer>
       {touched && error && (
         <>
-          <Error
-            size='12px'
-            weight={500}
-            color='error'
-            data-e2e='passwordsNotMatchError'
-          >
+          <Error size='12px' weight={500} color='error' data-e2e='passwordsNotMatchError'>
             {error}
           </Error>
-          {noLastPass && (
-            <WarningIcon name='alert-filled' color='red600' size='20px' />
-          )}
+          {noLastPass && <WarningIcon name='alert-filled' color='red600' size='20px' />}
         </>
       )}
     </Container>

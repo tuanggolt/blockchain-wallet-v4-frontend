@@ -1,28 +1,27 @@
 import { combineReducers } from 'redux'
 
-import { coreReducers, paths } from 'blockchain-wallet-v4/src'
+import { coreReducers, paths } from '@core'
 
-import { alertsReducer } from './alerts/reducers'
-import { analyticsReducer } from './analytics/reducers'
-import auth from './auth/reducers'
-import cache from './cache/reducers'
+import { alertsReducer as alerts } from './alerts/slice'
+import { authReducer as auth } from './auth/slice'
+import { cacheReducer as cache } from './cache/slice'
 import components from './components/reducers'
 import { custodialReducer as custodial } from './custodial/reducers'
 import form from './form/reducers'
-import goals from './goals/reducers'
-import logs from './logs/reducers'
+import { goalsReducer as goals } from './goals/slice'
+import { logsReducer as logs } from './logs/slice'
+import { miscReducer as misc } from './misc/slice'
 import { modalsReducer } from './modals/reducers'
 import profile from './modules/profile/reducers'
 import rates from './modules/rates/reducers'
 import securityCenter from './modules/settings/reducers'
 import { transferEthReducer } from './modules/transferEth/reducers'
 import { preferencesReducer } from './preferences/reducers'
-import prices from './prices/reducers'
-import session from './session/reducers'
+import { pricesReducer as prices } from './prices/slice'
+import { sessionReducer as session } from './session/slice'
 
 const rootReducer = {
-  alerts: alertsReducer,
-  analytics: analyticsReducer,
+  alerts,
   auth,
   cache,
   components,
@@ -30,6 +29,7 @@ const rootReducer = {
   form,
   goals,
   logs,
+  misc,
   modals: modalsReducer,
   preferences: preferencesReducer,
   prices,

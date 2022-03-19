@@ -5,31 +5,28 @@ import {
   add,
   any,
   compose,
-  concat,
   curry,
-  dropLastWhile,
-  endsWith,
   find,
   findLastIndex,
   head,
   is,
   isEmpty,
   last,
-  length,
   map,
   not,
   prop,
   propEq,
   propSatisfies,
   range,
-  repeat,
   splitAt,
   startsWith
 } from 'ramda'
 import { set } from 'ramda-lens'
 import { call, put, select } from 'redux-saga/effects'
 
-import { HDAccount, KVStoreEntry, Wallet, Wrapper } from '../../types'
+import { DERIVATION_LIST } from '@core/types/HDAccount'
+
+import { DerivationList, HDAccount, HDWallet, KVStoreEntry, Wallet, Wrapper } from '../../types'
 import { callTask } from '../../utils/functional'
 import { generateMnemonic } from '../../walletCrypto'
 import * as A from '../actions'
@@ -86,7 +83,7 @@ export default ({ api, networks }) => {
     yield refetchContextData()
   }
 
-  const createWalletSaga = function* ({ email, language, password }) {
+  const createWalletSaga = function* ({ captchaToken, email, language, password }) {
     const mnemonic = yield call(generateMnemonic, api)
     const [guid, sharedKey] = yield call(api.generateUUIDs, 2)
     const wrapper = Wrapper.createNew(
@@ -99,7 +96,7 @@ export default ({ api, networks }) => {
       undefined,
       networks.btc
     )
-    yield call(api.createWallet, email, wrapper)
+    yield call(api.createWallet, email, captchaToken, wrapper)
     yield put(A.wallet.refreshWrapper(wrapper))
   }
 
@@ -139,44 +136,15 @@ export default ({ api, networks }) => {
     }
   }
 
-  const findUsedAccounts_DEPRECATED_V3 = function* ({ batch, node, usedAccounts }) {
-    if (endsWith(repeat(false, 5), usedAccounts)) {
-      const n = length(dropLastWhile(not, usedAccounts))
-      return n < 1 ? 1 : n
-    }
-    const l = length(usedAccounts)
-    const getxpub = (i) => node.deriveHardened(i).neutered().toBase58()
-    // @ts-ignore
-    const isUsed = (a) => propSatisfies((n) => n > 0, 'n_tx', a)
-    const xpubs = map(getxpub, range(l, l + batch))
-    const result = yield call(
-      api.fetchBlockchainData,
-      { legacy: xpubs },
-      {
-        n: 1,
-        offset: 0,
-        onlyShow: ''
-      }
-    )
-    const search = (xpub) => find(propEq('address', xpub))
-    const accounts = map((xpub) => search(xpub)(prop('addresses', result)), xpubs)
-    const flags = map(isUsed, accounts)
-    return yield call(findUsedAccounts_DEPRECATED_V3, {
-      batch,
-      node,
-      usedAccounts: concat(usedAccounts, flags)
-    })
-  }
-
   const findUsedAccounts = function* ({ batch, nodes }) {
     const getxpub = curry((nodes, i) =>
       nodes.map((node) => node.deriveHardened(i).neutered().toBase58())
     )
-    const xpubs = map(getxpub(nodes), range(0, batch))
+    const xpubs = map(getxpub(nodes), range(0, batch)) as Array<string>
     const result = yield call(
       api.fetchBlockchainData,
       {
-        activeBech32: xpubs.map(last),
+        bech32: xpubs.map(last),
         legacy: xpubs.map(head)
       },
       {
@@ -242,58 +210,14 @@ export default ({ api, networks }) => {
     }
   }
 
-  // TODO: SEGWIT remove w/ DEPRECATED_V3
-  const restoreWalletSaga_DEPRECATED_V3 = function* ({
+  const restoreWalletSaga = function* ({
+    captchaToken,
     email,
     kvCredentials,
     language,
     mnemonic,
     password
   }) {
-    let recoveredFromMetadata
-
-    // if we have retrieved credentials from metadata, use them to restore wallet
-    if (kvCredentials) {
-      recoveredFromMetadata = yield call(restoreWalletFromMetadata, kvCredentials, password)
-    }
-
-    const seed = BIP39.mnemonicToSeed(mnemonic)
-    const masterNode = Bitcoin.bip32.fromSeed(seed, networks.btc)
-    const node = masterNode.deriveHardened(44).deriveHardened(0)
-    const nAccounts = yield call(findUsedAccounts_DEPRECATED_V3, {
-      batch: 10,
-      node,
-      usedAccounts: []
-    })
-
-    // generate new guid
-    let [guid, sharedKey] = yield call(api.generateUUIDs, 2)
-
-    // use previously recovered guid and sharedKey from metadata for new wrapper if available
-    if (recoveredFromMetadata) {
-      guid = kvCredentials.guid
-      sharedKey = kvCredentials.sharedKey
-    }
-
-    // create new wallet wrapper
-    const wrapper = Wrapper.createNew(
-      guid,
-      password,
-      sharedKey,
-      mnemonic,
-      language,
-      undefined,
-      nAccounts
-    )
-
-    // create new wallet if it wasn't recovered from metadata
-    if (!recoveredFromMetadata) {
-      yield call(api.createWallet, email, wrapper)
-    }
-    yield put(A.wallet.refreshWrapper(wrapper))
-  }
-
-  const restoreWalletSaga = function* ({ email, kvCredentials, language, mnemonic, password }) {
     let recoveredFromMetadata
 
     // if we have retrieved credentials from metadata, use them to restore wallet
@@ -332,7 +256,7 @@ export default ({ api, networks }) => {
 
     // create new wallet if it wasn't recovered from metadata
     if (!recoveredFromMetadata) {
-      yield call(api.createWallet, email, wrapper)
+      yield call(api.createWallet, email, captchaToken, wrapper)
     }
     yield put(A.wallet.refreshWrapper(wrapper))
   }
@@ -395,19 +319,80 @@ export default ({ api, networks }) => {
     }
   }
 
+  const getAccountsWithIncompleteDerivations = function* () {
+    const isEncrypted = yield select(S.isSecondPasswordOn)
+    if (isEncrypted) return []
+
+    const wallet = yield select(S.getWallet)
+    const accounts = Wallet.selectHDAccounts(wallet)
+    const accountsWithMissingDerivations = accounts
+      .filter((acct) => acct.derivations.size < DERIVATION_LIST.length)
+      .toJS()
+
+    return accountsWithMissingDerivations
+  }
+
+  const replenishDerivations = function* (accounts) {
+    try {
+      if (!accounts.length) return
+
+      const isEncrypted = yield select(S.isSecondPasswordOn)
+      if (isEncrypted) return
+
+      const getSeedHex = yield select(S.getSeedHex, null)
+      const seedHex = yield call(() => taskToPromise(getSeedHex))
+
+      // eslint-disable-next-line no-restricted-syntax
+      for (const acct of accounts) {
+        const accountIdx = acct.index
+        const derivations = HDWallet.generateDerivations(seedHex, accountIdx)
+        yield put(A.wallet.setAccountDerivations(accountIdx, DerivationList.fromJS(derivations)))
+      }
+    } catch (e) {
+      // dont throw
+    }
+  }
+
+  const updateMnemonicBackup = function* () {
+    try {
+      const sharedKey = yield select(S.getSharedKey)
+      const guid = yield select(S.getGuid)
+      yield call(api.updateMnemonicBackup, sharedKey, guid)
+    } catch (e) {
+      // shouldn't block login
+    }
+  }
+
+  const triggerMnemonicViewedAlert = function* () {
+    const sharedKey = yield select(S.getSharedKey)
+    const guid = yield select(S.getGuid)
+    yield call(api.triggerMnemonicViewedAlert, sharedKey, guid)
+  }
+
+  const triggerNonCustodialSendAlert = function* (action) {
+    const { amount, currency } = action.payload
+    const sharedKey = yield select(S.getSharedKey)
+    const guid = yield select(S.getGuid)
+    yield call(api.triggerNonCustodialSendAlert, sharedKey, guid, currency, amount)
+  }
+
   return {
     checkAndUpdateWalletNames,
     createWalletSaga,
     fetchWalletSaga,
+    getAccountsWithIncompleteDerivations,
     importLegacyAddress,
     newHDAccount,
     refetchContextData,
+    replenishDerivations,
     resendSmsLoginCode,
     restoreWalletCredentialsFromMetadata,
     restoreWalletSaga,
-    restoreWalletSaga_DEPRECATED_V3,
     setHDAddressLabel,
     toggleSecondPassword,
+    triggerMnemonicViewedAlert,
+    triggerNonCustodialSendAlert,
+    updateMnemonicBackup,
     updatePbkdf2Iterations,
     upgradeToV3,
     upgradeToV4

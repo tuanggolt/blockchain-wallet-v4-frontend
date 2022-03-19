@@ -2,9 +2,8 @@ import React, { ReactElement } from 'react'
 import { FormattedMessage } from 'react-intl'
 import styled from 'styled-components'
 
+import { BSPaymentMethodType } from '@core/types'
 import { Icon } from 'blockchain-info-components'
-import { SBPaymentMethodType } from 'blockchain-wallet-v4/src/types'
-import { SuccessCartridge } from 'components/Cartridge'
 import {
   Content,
   Description,
@@ -12,7 +11,8 @@ import {
   DisplayIcon,
   DisplaySubTitle,
   DisplayTitle
-} from 'components/SimpleBuy'
+} from 'components/BuySell'
+import { SuccessCartridge } from 'components/Cartridge'
 
 const DisplayTitleBank = styled(DisplayTitle)`
   margin-bottom: 2px;
@@ -40,7 +40,7 @@ type Props = {
   icon: ReactElement
   onClick: (string) => void
   text: ReactElement | string
-  value: SBPaymentMethodType
+  value: BSPaymentMethodType
 }
 
 const BankTransfer = ({ icon, onClick, value }: Props) => (
@@ -54,16 +54,10 @@ const BankTransfer = ({ icon, onClick, value }: Props) => (
         <DisplayIconBank>{icon}</DisplayIconBank>
         <Content>
           <DisplayTitleBank>
-            <FormattedMessage
-              id='copy.bank_account'
-              defaultMessage='Bank Account'
-            />
+            <FormattedMessage id='copy.bank_account' defaultMessage='Bank Account' />
           </DisplayTitleBank>
           <DisplaySubTitle>
-            <FormattedMessage
-              id='copy.instantly_available'
-              defaultMessage='Instantly Available'
-            />
+            <FormattedMessage id='copy.instantly_available' defaultMessage='Instantly Available' />
           </DisplaySubTitle>
           <Description>
             <FormattedMessage
@@ -76,10 +70,7 @@ const BankTransfer = ({ icon, onClick, value }: Props) => (
       </TopSection>
       <CartridgeContainer>
         <SuccessCartridge>
-          <FormattedMessage
-            id='copy.most_popular'
-            defaultMessage='Most Popular'
-          />
+          <FormattedMessage id='copy.most_popular' defaultMessage='Most Popular' />
         </SuccessCartridge>
       </CartridgeContainer>
     </MainContent>

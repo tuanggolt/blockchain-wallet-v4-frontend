@@ -1,18 +1,8 @@
+import * as Bitcoin from 'bitcoinjs-lib'
 import Task from 'data.task'
 /* eslint-disable */
 import { fromJS as iFromJS } from 'immutable-ext' // if we delete this import, wallet tests will fail -  ¯\_(ツ)_/¯
-import {
-  assoc,
-  compose,
-  contains,
-  curry,
-  dissoc,
-  is,
-  isNil,
-  not,
-  pipe,
-  split
-} from 'ramda'
+import { assoc, compose, contains, curry, dissoc, is, isNil, not, pipe, split } from 'ramda'
 /* eslint-disable */
 import { over, traversed, traverseOf, view } from 'ramda-lens'
 
@@ -20,7 +10,6 @@ import * as crypto from '../walletCrypto'
 import * as Cache from './Cache'
 import * as Derivation from './Derivation'
 import * as DerivationList from './DerivationList'
-import * as HDAccountDeprecatedV3 from './HDAccount_DEPRECATED_V3'
 import Type from './Type'
 
 export const DEFAULT_DERIVATION_TYPE = 'bech32'
@@ -53,11 +42,7 @@ export const derivations = HDAccount.define('derivations')
 export const defaultDerivation = HDAccount.define('default_derivation')
 
 // Lens used to traverse all secrets for double encryption
-export const secretsLens = compose(
-  derivations,
-  traversed,
-  Derivation.secretsLens
-)
+export const secretsLens = compose(derivations, traversed, Derivation.secretsLens)
 
 export const selectLabel = view(label)
 export const selectArchived = view(archived)
@@ -69,115 +54,76 @@ export const isArchived = compose(Boolean, view(archived))
 
 export const isActive = compose(not, isArchived)
 
-export const isWatchOnly = account =>
+export const isWatchOnly = (account) =>
   // @ts-ignore
   compose(isNil, selectXpriv('bech32'))(account)
 
-export const isXpub = curry((myxpub, account) =>
-  compose(contains(myxpub), selectAllXpubs)(account)
-)
+export const isXpub = curry((myxpub, account) => compose(contains(myxpub), selectAllXpubs)(account))
 
 export const selectAllXpubsGrouped = account => {
-  // TODO: SEGWIT remove w/ DEPRECATED_V3
-  // @ts-ignore
-  if (!account.derivations)
-    return HDAccountDeprecatedV3.selectAllXpubsGrouped(account)
   const derivations = selectDerivations(account)
   return DerivationList.getXpubsAndTypesFromDerivations(derivations)
 }
 
 export const selectAllXpubs = account => {
-  // TODO: SEGWIT remove w/ DEPRECATED_V3
-  // @ts-ignore
-  if (!account.derivations) return HDAccountDeprecatedV3.selectAllXpubs(account)
   const derivations = selectDerivations(account)
   return DerivationList.getXpubsFromDerivations(derivations)
 }
 
 export const selectXpub = (account, type?) => {
-  // TODO: SEGWIT remove w/ DEPRECATED_V3
-  // @ts-ignore
-  if (!account.derivations) return HDAccountDeprecatedV3.selectXpub(account)
   const derivationType = type || selectDefaultDerivation(account)
   const derivations = selectDerivations(account)
-  const derivation = DerivationList.getDerivationFromType(
-    derivations,
-    derivationType
-  )
+  const derivation = DerivationList.getDerivationFromType(derivations, derivationType)
   return Derivation.selectXpub(derivation)
 }
 
 export const selectXpriv = curry((type, account) => {
-  // TODO: SEGWIT remove w/ DEPRECATED_V3
-  // @ts-ignore
-  if (!account.derivations) return HDAccountDeprecatedV3.selectXpriv(account)
   const derivationType = type || selectDefaultDerivation(account)
   const derivations = selectDerivations(account)
-  const derivation = DerivationList.getDerivationFromType(
-    derivations,
-    derivationType
-  )
+  const derivation = DerivationList.getDerivationFromType(derivations, derivationType)
   return Derivation.selectXpriv(derivation)
 })
 
 export const selectAddressLabels = (account, type) => {
-  // TODO: SEGWIT remove w/ DEPRECATED_V3
-  // @ts-ignore
-  if (!account.derivations)
-    return HDAccountDeprecatedV3.selectAddressLabels(account)
   const derivationType = type || selectDefaultDerivation(account)
   const derivations = selectDerivations(account)
-  const derivation = DerivationList.getDerivationFromType(
-    derivations,
-    derivationType
-  )
+  const derivation = DerivationList.getDerivationFromType(derivations, derivationType)
   return Derivation.selectAddressLabels(derivation)
 }
 
 export const getAddress = (account, path, network, type?) => {
-  // TODO: SEGWIT remove w/ DEPRECATED_V3
-  // @ts-ignore
-  if (!account.derivations)
-    return HDAccountDeprecatedV3.getAddress(account, path, network)
   const [, chain, index] = split('/', path)
   const i = parseInt(index)
   const c = parseInt(chain)
   const derivationType = type || selectDefaultDerivation(account)
   const derivations = selectDerivations(account)
-  const cache = DerivationList.getCacheFromType(derivations, derivationType)
-  return Cache.getAddress(cache, c, i, network, derivationType)
+  const derivation = DerivationList.getDerivationFromType(derivations, derivationType)
+  const { publicKey } = Bitcoin.bip32.fromBase58(derivation.xpub).derivePath(`${c}/${i}`)
+
+  switch (derivationType) {
+    case 'bech32':
+      return Bitcoin.payments.p2wpkh({ pubkey: publicKey }).address
+    case 'legacy':
+      return Bitcoin.payments.p2pkh({ pubkey: publicKey }).address
+    default:
+      throw new Error(`Unrecogonized derivation type ${derivationType}`)
+  }
 }
 
 export const getReceiveAddress = (account, receiveIndex, network, type?) => {
-  // TODO: SEGWIT remove w/ DEPRECATED_V3
-  // @ts-ignore
-  if (!account.derivations)
-    return HDAccountDeprecatedV3.getReceiveAddress(
-      account,
-      receiveIndex,
-      network
-    )
   HDAccount.guard(account)
   const derivationType = type || selectDefaultDerivation(account)
-  const derivations = selectDerivations(account)
-  const cache = DerivationList.getCacheFromType(derivations, derivationType)
-  return Cache.getAddress(cache, 0, receiveIndex, network, derivationType)
+  return getAddress(account, `M/0/${receiveIndex}`, network, derivationType)
 }
 
 export const getChangeAddress = (account, changeIndex, network, type?) => {
-  // TODO: SEGWIT remove w/ DEPRECATED_V3
-  // @ts-ignore
-  if (!account.derivations)
-    return HDAccountDeprecatedV3.getChangeAddress(account, changeIndex, network)
   HDAccount.guard(account)
   const derivationType = type || selectDefaultDerivation(account)
-  const derivations = selectDerivations(account)
-  const cache = DerivationList.getCacheFromType(derivations, derivationType)
-  return Cache.getAddress(cache, 1, changeIndex, network, derivationType)
+  return getAddress(account, `M/1/${changeIndex}`, network, derivationType)
 }
 
 // migrateFromV3 :: Object -> Object
-const migrateFromV3 = account => {
+const migrateFromV3 = (account) => {
   if (account.derivations != null) {
     return account
   }
@@ -200,7 +146,7 @@ const migrateFromV3 = account => {
     dissoc('address_labels'),
     dissoc('cache')
   )
-
+  // @ts-ignore
   return migrate(account)
 }
 
@@ -212,7 +158,7 @@ export const fromJS = (account, index) => {
   const accountCons = compose(
     over(derivations, DerivationList.fromJS),
     // @ts-ignore
-    a => new HDAccount(a),
+    (a) => new HDAccount(a),
     assoc('index', index),
     migrateFromV3
   )
@@ -221,11 +167,6 @@ export const fromJS = (account, index) => {
 }
 
 export const toJSwithIndex = pipe(HDAccount.guard, acc => {
-  // TODO: SEGWIT remove w/ DEPRECATED_V3
-  // @ts-ignore
-  // console.log(acc)
-  // @ts-ignore
-  if (!acc.derivations) return HDAccountDeprecatedV3.toJSwithIndex(acc)
   const accountDecons = compose(over(derivations, DerivationList.toJS))
   // @ts-ignore
   return accountDecons(acc).toJS()
@@ -233,7 +174,7 @@ export const toJSwithIndex = pipe(HDAccount.guard, acc => {
 
 export const toJS = compose(dissoc('index'), toJSwithIndex)
 
-export const reviver = jsObject => {
+export const reviver = (jsObject) => {
   // @ts-ignore
   return new HDAccount(jsObject)
 }

@@ -11,9 +11,9 @@ import { timeFormat } from 'd3-time-format'
 import ResizeObserver from 'resize-observer-polyfill'
 import styled, { DefaultTheme } from 'styled-components'
 
+import { fiatToString } from '@core/exchange/utils'
+import { CoinType, FiatType } from '@core/types'
 import { Color } from 'blockchain-info-components'
-import { fiatToString } from 'blockchain-wallet-v4/src/exchange/currency'
-import { CoinType, FiatType } from 'core/types'
 
 type Data = [number, number]
 
@@ -23,7 +23,7 @@ const getYValue = (d: Data) => new Date(d[0])
 
 const getXValue = (d: Data) => d[1]
 
-const bisectDate = bisector<Data, Date>(d => new Date(getYValue(d))).left
+const bisectDate = bisector<Data, Date>((d) => new Date(getYValue(d))).left
 
 const strokeWidth = 2
 
@@ -32,8 +32,6 @@ type TooltipData = Data
 const circleSize = 4
 
 const tooltipBorderRadius = 4
-
-const margin = 8
 
 const Wrapper = styled.div`
   position: relative;
@@ -44,17 +42,12 @@ const Wrapper = styled.div`
   justify-content: center;
 `
 
-const Chart = ({
-  coin,
-  currency,
-  data
-}: {
-  coin: CoinType
-  currency: FiatType
-  data: Data[]
-}) => {
-  const [ref, { height, width }] = useMeasure({ polyfill: ResizeObserver })
-  const color = Color(coin as keyof DefaultTheme)
+const Chart = ({ coin, currency, data }: { coin: CoinType; currency: FiatType; data: Data[] }) => {
+  const [ref, bounds] = useMeasure({ polyfill: ResizeObserver })
+  const color = Color(coin as keyof DefaultTheme) || '#000'
+
+  const width = bounds.width || 100
+  const height = bounds.height || 100
 
   const {
     hideTooltip,
@@ -67,20 +60,20 @@ const Chart = ({
   const tooltipStyles = useMemo(
     () => ({
       ...defaultStyles,
-      borderRadius: tooltipBorderRadius,
       background: Color('grey900'),
+      borderRadius: tooltipBorderRadius,
       color: 'white',
       fontFamily:
         '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif '
     }),
-    [color]
+    []
   )
 
   const xScale = useMemo(
     () =>
       scaleTime({
-        range: [0, width],
-        domain: extent(data, getYValue) as [Date, Date]
+        domain: extent(data, getYValue) as [Date, Date],
+        range: [0, width]
       }),
     [width, data]
   )
@@ -88,16 +81,16 @@ const Chart = ({
   const yScale = useMemo(
     () =>
       scaleLinear({
-        range: [height, 0],
         domain: [min(data, getXValue), max(data, getXValue) || 0],
-        nice: true
+        nice: true,
+        range: [height, 0]
       }),
     [height, data]
   )
 
   const handleTooltip = useCallback(
     (event: EventType) => {
-      let { x } = localPoint(event) || { x: 0 }
+      const { x } = localPoint(event) || { x: 0 }
       const x0 = xScale.invert(x)
       const index = bisectDate(data, x0, 1)
       const d0 = data[index - 1]
@@ -105,10 +98,7 @@ const Chart = ({
       let d = d0
       if (d1 && getYValue(d1)) {
         d =
-          x0.valueOf() - getYValue(d0).valueOf() >
-          getYValue(d1).valueOf() - x0.valueOf()
-            ? d1
-            : d0
+          x0.valueOf() - getYValue(d0).valueOf() > getYValue(d1).valueOf() - x0.valueOf() ? d1 : d0
       }
 
       showTooltip({
@@ -121,29 +111,23 @@ const Chart = ({
   )
 
   return (
-    <Wrapper ref={ref}>
-      <svg width={width - margin} height={height}>
-        <LinearGradient
-          id={color}
-          fromOpacity={0.5}
-          toOpacity={0}
-          from={color}
-          to='white'
-        />
+    <Wrapper>
+      <svg ref={ref} width='100%' height='100%' viewBox={`0 0 ${width} ${height}`}>
+        <LinearGradient id={color} fromOpacity={0.5} toOpacity={0} from={color} to='white' />
 
         <AreaClosed<Data>
           data={data}
           fill={`url(#${color})`}
           yScale={yScale}
-          x={d => xScale(getYValue(d)) ?? 0}
-          y={d => yScale(getXValue(d)) ?? 0}
+          x={(d) => xScale(getYValue(d)) ?? 0}
+          y={(d) => yScale(getXValue(d)) ?? 0}
           strokeWidth={0}
         />
 
         <LinePath<Data>
           data={data}
-          x={d => xScale(getYValue(d)) ?? 0}
-          y={d => yScale(getXValue(d)) ?? 0}
+          x={(d) => xScale(getYValue(d)) ?? 0}
+          y={(d) => yScale(getXValue(d)) ?? 0}
           strokeWidth={strokeWidth}
           stroke={color}
         />
@@ -164,7 +148,7 @@ const Chart = ({
           <g>
             <Line
               from={{ x: tooltipLeft, y: 0 }}
-              to={{ x: tooltipLeft, y: innerHeight }}
+              to={{ x: tooltipLeft, y: window.innerHeight }}
               stroke={color}
               opacity={0.2}
               strokeWidth={strokeWidth}
@@ -206,8 +190,8 @@ const Chart = ({
           <br />
           <br />
           {fiatToString({
-            value: getXValue(tooltipData),
-            unit: currency
+            unit: currency,
+            value: getXValue(tooltipData)
           })}
         </TooltipWithBounds>
       ) : null}

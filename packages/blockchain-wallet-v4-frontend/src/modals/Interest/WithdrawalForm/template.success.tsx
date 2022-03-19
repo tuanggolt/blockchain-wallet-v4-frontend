@@ -1,14 +1,14 @@
 import React from 'react'
-import { FormattedHTMLMessage, FormattedMessage } from 'react-intl'
+import { FormattedMessage } from 'react-intl'
 import { connect } from 'react-redux'
 import { compose } from 'redux'
 import { InjectedFormProps, reduxForm } from 'redux-form'
 
+import { Exchange } from '@core'
+import { convertCoinToFiat } from '@core/exchange'
+import { fiatToString, formatFiat } from '@core/exchange/utils'
+import { FiatType } from '@core/types'
 import { Button, Icon, SpinningLoader, Text } from 'blockchain-info-components'
-import { Exchange } from 'blockchain-wallet-v4/src'
-import { convertCoinToFiat } from 'blockchain-wallet-v4/src/exchange'
-import { fiatToString, formatFiat } from 'blockchain-wallet-v4/src/exchange/currency'
-import { FiatType } from 'blockchain-wallet-v4/src/types'
 import FiatDisplay from 'components/Display/FiatDisplay'
 import { CoinBalanceDropdown, NumberBox } from 'components/Form'
 import { selectors } from 'data'
@@ -54,20 +54,23 @@ const WithdrawalForm: React.FC<InjectedFormProps<{}, Props> & Props> = (props) =
     availToWithdraw,
     coin,
     displayCoin,
+    flagEDDInterestFileUpload,
     formActions,
     handleDisplayToggle,
     interestActions,
+    interestEDDStatus,
     interestEDDWithdrawLimits,
     invalid,
     rates,
     submitting,
-    supportedCoins,
     values,
     walletCurrency
   } = props
 
   const currencySymbol = Exchange.getSymbol(walletCurrency) as string
-  const { coinTicker, displayName } = supportedCoins[coin]
+  const { coinfig } = window.coins[coin]
+  const coinTicker = coinfig.displaySymbol
+  const displayName = coinfig.name
   const account = accountBalances[coin]
   const accountBalanceBase = account && account.balance
   const interestBalanceBase = account && account.totalInterest
@@ -75,7 +78,13 @@ const WithdrawalForm: React.FC<InjectedFormProps<{}, Props> & Props> = (props) =
   const interestBalanceStandard = convertBaseToStandard(coin, interestBalanceBase)
   const availToWithdrawCrypto = convertBaseToStandard(coin, availToWithdraw)
   const withdrawalAmount = (values && values.withdrawalAmount) || 0
-  const availToWithdrawFiat = convertCoinToFiat(availToWithdrawCrypto, coin, walletCurrency, rates)
+  const availToWithdrawFiat = convertCoinToFiat({
+    coin,
+    currency: walletCurrency,
+    isStandard: true,
+    rates,
+    value: availToWithdrawCrypto
+  })
   const withdrawalAmountFiat = amountToFiat(
     displayCoin,
     withdrawalAmount,
@@ -101,18 +110,20 @@ const WithdrawalForm: React.FC<InjectedFormProps<{}, Props> & Props> = (props) =
 
   if (!account) return null
 
-  const showEDDWithdrawLimit = interestEDDWithdrawLimits?.withdrawLimits
-    ? Number(withdrawalAmountFiat) > Number(interestEDDWithdrawLimits?.withdrawLimits.amount)
-    : false
-
-  const handleFormSubmit = (e) => {
+  const showEDDWithdrawLimit =
+    (interestEDDWithdrawLimits?.withdrawLimits
+      ? Number(withdrawalAmountFiat) > Number(interestEDDWithdrawLimits?.withdrawLimits.amount)
+      : false) &&
+    !interestEDDStatus?.eddSubmitted &&
+    !interestEDDStatus?.eddPassed
+  const handleFormSubmit = (e: React.SyntheticEvent) => {
     e.preventDefault()
-    interestActions.requestWithdrawal(coin, withdrawalAmountCrypto)
-    if (showEDDWithdrawLimit) {
-      props.setShowSupply(true)
-    } else {
-      props.setShowSupply(false)
-    }
+    interestActions.requestWithdrawal({
+      coin,
+      withdrawalAmountCrypto,
+      withdrawalAmountFiat
+    })
+    props.setShowSupply(showEDDWithdrawLimit)
   }
 
   return submitting ? (
@@ -127,7 +138,7 @@ const WithdrawalForm: React.FC<InjectedFormProps<{}, Props> & Props> = (props) =
       <Text weight={600} color='grey600' size='16px' style={{ marginTop: '24px' }}>
         <FormattedMessage
           id='modals.interest.withdrawal.progressmsg'
-          defaultMessage='Requesting a withdrawal from your Interest Account'
+          defaultMessage='Requesting a withdrawal from your Rewards Account'
         />
       </Text>
     </SendingWrapper>
@@ -139,7 +150,7 @@ const WithdrawalForm: React.FC<InjectedFormProps<{}, Props> & Props> = (props) =
             color='grey600'
             cursor
             name='arrow-left'
-            onClick={() => interestActions.showInterestModal('ACCOUNT_SUMMARY', coin)}
+            onClick={() => interestActions.showInterestModal({ coin, step: 'ACCOUNT_SUMMARY' })}
             size='20px'
           />
           <Text color='grey800' size='20px' weight={600}>
@@ -179,7 +190,7 @@ const WithdrawalForm: React.FC<InjectedFormProps<{}, Props> & Props> = (props) =
             <Text color='grey600' weight={500} size='14px'>
               <FormattedMessage
                 id='modals.interest.withdrawal.totalinterest'
-                defaultMessage='Total Interest Earned'
+                defaultMessage='Total Rewards Earned'
               />
             </Text>
 
@@ -202,7 +213,7 @@ const WithdrawalForm: React.FC<InjectedFormProps<{}, Props> & Props> = (props) =
           <Text color='grey600' weight={500} size='14px'>
             <FormattedMessage
               id='modals.interest.withdrawal.accountAmount'
-              defaultMessage='Select the account you would like to withdraw your Interest Account funds to. You can withdraw up to'
+              defaultMessage='Select the account you would like to withdraw your Rewards Account funds to. You can withdraw up to'
             />{' '}
             {displayCoin ? (
               <AmountAvailContainer onClick={handleOnClickCryptoAmount}>
@@ -281,7 +292,18 @@ const WithdrawalForm: React.FC<InjectedFormProps<{}, Props> & Props> = (props) =
           </PrincipalCcyAbsolute>
         </AmountFieldContainer>
 
-        {showEDDWithdrawLimit && (
+        {showEDDWithdrawLimit && flagEDDInterestFileUpload && (
+          <CartrigeText>
+            <Text color='orange600' size='14px' weight={500}>
+              <FormattedMessage
+                id='modals.interest.withdrawal.edd_need_further_information'
+                defaultMessage='We will need to further verify your identity to make this withdrawal.'
+              />
+            </Text>
+          </CartrigeText>
+        )}
+
+        {showEDDWithdrawLimit && !flagEDDInterestFileUpload && (
           <CustomOrangeCartridge>
             <Icon name='info' color='orange600' size='18px' style={{ marginRight: '12px' }} />
             <CartrigeText>
@@ -296,9 +318,9 @@ const WithdrawalForm: React.FC<InjectedFormProps<{}, Props> & Props> = (props) =
       <Bottom>
         <NetworkFee>
           <Text color='grey600' weight={500} size='14px'>
-            <FormattedHTMLMessage
+            <FormattedMessage
               id='modals.interest.withdrawal.recap'
-              defaultMessage='You are requesting to withdraw <b>{withdrawalAmountFiat}</b> ({withdrawalAmountCrypto}) from your Interest Account. After confirming this withdrawal, you will not continue to earn interest on the amount withdrawn.'
+              defaultMessage='You are requesting to withdraw <b>{withdrawalAmountFiat}</b> ({withdrawalAmountCrypto}) from your Rewards Account. After confirming this withdrawal, you will not continue to earn rewards on the amount withdrawn.'
               values={{
                 withdrawalAmountCrypto: `${withdrawalAmountCrypto} ${coinTicker}`,
                 withdrawalAmountFiat: `${currencySymbol}${formatFiat(withdrawalAmountFiat)}`

@@ -3,19 +3,14 @@ import { FormattedMessage } from 'react-intl'
 import BigNumber from 'bignumber.js'
 import Bowser from 'bowser'
 import PropTypes from 'prop-types'
+import { isEmpty } from 'ramda'
 import { Field, reduxForm } from 'redux-form'
 import styled from 'styled-components'
 
-import {
-  Banner,
-  Button,
-  Link,
-  Text,
-  TooltipHost,
-  TooltipIcon
-} from 'blockchain-info-components'
-import { Remote } from 'blockchain-wallet-v4/src'
+import { Remote } from '@core'
+import { Banner, Button, Link, Text, TooltipHost, TooltipIcon } from 'blockchain-info-components'
 import ComboDisplay from 'components/Display/ComboDisplay'
+import UpgradeToGoldBanner from 'components/Flyout/Banners/UpgradeToGold'
 import {
   FiatConverter,
   Form,
@@ -41,11 +36,12 @@ import {
   FeePerByteContainer,
   Row
 } from 'components/Send'
-import ExchangePromo from 'components/Send/ExchangePromo'
 import MnemonicRequiredForCustodySend from 'components/Send/RecoveryPhrase'
+import UnstoppableDomains from 'components/UnstoppableDomains'
 import { model } from 'data'
 import { required, validEthAddress } from 'services/forms'
 
+import { TIER_TYPES } from '../../../Settings/TradingLimits/model'
 import LowBalanceWarning from './LowBalanceWarning'
 import LowEthWarningForErc20 from './LowEthWarningForErc20'
 import MinFeeForRetryInvalid from './MinFeeForRetryInvalid'
@@ -54,6 +50,7 @@ import RegularFeeLink from './RegularFeeLink'
 import {
   insufficientFunds,
   invalidAmount,
+  isSendLimitOver,
   maximumAmount,
   maximumFee,
   minimumFee,
@@ -74,7 +71,7 @@ const StyledRow = styled(Row)`
   }
 `
 
-const FirstStep = props => {
+const FirstStep = (props) => {
   const {
     amount,
     balanceStatus,
@@ -96,40 +93,31 @@ const FirstStep = props => {
     priorityFee,
     pristine,
     regularFee,
+    sendLimits,
     submitting,
-    unconfirmedTx
+    unconfirmedTx,
+    verifyIdentity
   } = props
   const isFromLockbox = from && from.type === 'LOCKBOX'
   const isFromCustody = from && from.type === 'CUSTODIAL'
   const browser = Bowser.getParser(window.navigator.userAgent)
-  const isBrowserSupported = browser.satisfies(
-    model.components.lockbox.supportedBrowsers
-  )
+  const isBrowserSupported = browser.satisfies(model.components.lockbox.supportedBrowsers)
   const disableLockboxSend = isFromLockbox && !isBrowserSupported
-  const disableDueToLowEth =
-    coin !== 'ETH' && !isSufficientEthForErc20 && !isFromCustody
+  const disableDueToLowEth = coin !== 'ETH' && !isSufficientEthForErc20 && !isFromCustody
   const disableRetryAttempt =
-    isRetryAttempt &&
-    new BigNumber(fee).isLessThanOrEqualTo(minFeeRequiredForRetry)
+    isRetryAttempt && new BigNumber(fee).isLessThanOrEqualTo(minFeeRequiredForRetry)
   const disableCustodySend = isFromCustody && !isMnemonicVerified
+
   return (
     <Form onSubmit={handleSubmit}>
-      <FormGroup inline margin={'15px'} style={{ zIndex: 3 }}>
-        <FormItem width={'40%'}>
+      <FormGroup inline margin='15px' style={{ zIndex: 3 }}>
+        <FormItem width='40%'>
           <FormLabel HtmlFor='coin'>
-            <FormattedMessage
-              id='modals.sendether.firststep.currency'
-              defaultMessage='Currency'
-            />
+            <FormattedMessage id='modals.sendether.firststep.currency' defaultMessage='Currency' />
           </FormLabel>
-          <Field
-            name='coin'
-            component={SelectBoxCoin}
-            type='send'
-            validate={[required]}
-          />
+          <Field name='coin' component={SelectBoxCoin} type='send' validate={[required]} />
         </FormItem>
-        <FormItem width={'60%'}>
+        <FormItem width='60%'>
           <FormLabel HtmlFor='from'>
             <FormattedMessage id='copy.from' defaultMessage='From' />
           </FormLabel>
@@ -165,13 +153,13 @@ const FirstStep = props => {
           </Text>
         </WarningBanners>
       )}
-      <FormGroup margin={'8px'}>
+      <FormGroup>
+        <CustodyToAccountMessage coin={coin} account={from} />
+      </FormGroup>
+      <FormGroup margin='8px'>
         <FormItem>
           <FormLabel HtmlFor='to'>
-            <FormattedMessage
-              id='modals.sendeth.firststep.tocoin'
-              defaultMessage='To'
-            />
+            <FormattedMessage id='modals.sendeth.firststep.tocoin' defaultMessage='To' />
           </FormLabel>
           <StyledRow>
             <Field
@@ -181,24 +169,18 @@ const FirstStep = props => {
               disabled={isRetryAttempt}
               exclude={from ? [from.label] : []}
               includeAll={false}
-              includeExchangeAddress={!isFromCustody}
-              isCreatable={!isFromCustody}
+              includeExchangeAddress
+              isCreatable
               isValidNewOption={() => false}
               includeCustodial={!isFromCustody}
-              forceCustodialFirst={!isFromCustody}
+              forceCustodialFirst
               name='to'
               noOptionsMessage={() => null}
-              openMenuOnClick={isFromCustody}
               placeholder='Paste, scan, or select destination'
-              validate={
-                isFromCustody ? [required] : [required, validEthAddress]
-              }
+              validate={[required, validEthAddress]}
             />
-            {isFromCustody || isRetryAttempt ? null : (
-              <QRCodeCapture
-                scanType='ethAddress'
-                border={['top', 'bottom', 'right', 'left']}
-              />
+            {isRetryAttempt ? null : (
+              <QRCodeCapture scanType='ethAddress' border={['top', 'bottom', 'right', 'left']} />
             )}
           </StyledRow>
           {unconfirmedTx && !isRetryAttempt && (
@@ -211,14 +193,8 @@ const FirstStep = props => {
           )}
         </FormItem>
       </FormGroup>
-      {isFromCustody && isMnemonicVerified ? (
-        <FormGroup>
-          <CustodyToAccountMessage coin={coin} account={from} amount={amount} />
-        </FormGroup>
-      ) : (
-        <ExchangePromo />
-      )}
-      <FormGroup margin={'15px'}>
+      <UnstoppableDomains form={model.components.sendEth.FORM} />
+      <FormGroup margin='15px'>
         <FormItem>
           <FormLabel HtmlFor='amount'>
             <FormattedMessage id='copy.amount' defaultMessage='Amount' />
@@ -228,13 +204,9 @@ const FirstStep = props => {
             disabled={unconfirmedTx}
             component={FiatConverter}
             coin={coin}
-            validate={[
-              required,
-              invalidAmount,
-              insufficientFunds,
-              maximumAmount
-            ]}
+            validate={[required, invalidAmount, insufficientFunds, maximumAmount, isSendLimitOver]}
             data-e2e={`${coin}Send`}
+            errorBottom
             marginTop='8px'
           />
         </FormItem>
@@ -245,13 +217,10 @@ const FirstStep = props => {
           totalBalance={props.from.balance}
         />
       )}
-      <FormGroup margin={'15px'}>
+      <FormGroup margin='15px'>
         <FormItem>
           <FormLabel HtmlFor='description'>
-            <FormattedMessage
-              id='modals.sendeth.firststep.desc'
-              defaultMessage='Description'
-            />
+            <FormattedMessage id='modals.sendeth.firststep.desc' defaultMessage='Description' />
             <TooltipHost id='sendeth.firststep.description'>
               <TooltipIcon name='info' size='12px' />
             </TooltipHost>
@@ -267,8 +236,8 @@ const FirstStep = props => {
           />
         </FormItem>
       </FormGroup>
-      {!isFromCustody && (
-        <FeeFormGroup inline margin={'10px'}>
+      {!isFromCustody ? (
+        <FeeFormGroup inline margin='10px'>
           <ColLeft>
             <FeeFormContainer toggled={feeToggled}>
               <FeeFormLabel>
@@ -277,13 +246,7 @@ const FirstStep = props => {
                   defaultMessage='Network Fee'
                 />
                 <span>&nbsp;</span>
-                {!feeToggled && (
-                  <Field
-                    name='fee'
-                    component={SelectBox}
-                    elements={feeElements}
-                  />
-                )}
+                {!feeToggled && <Field name='fee' component={SelectBox} elements={feeElements} />}
                 {feeToggled && (
                   <FeeOptionsContainer>
                     <RegularFeeLink fee={regularFee} coin={coin} />
@@ -331,6 +294,18 @@ const FirstStep = props => {
             </Link>
           </ColRight>
         </FeeFormGroup>
+      ) : (
+        <FeeFormGroup margin='10px'>
+          <FormLabel>
+            <FormattedMessage
+              id='modals.sendeth.firststep.networkfee'
+              defaultMessage='Network Fee'
+            />
+          </FormLabel>
+          <ComboDisplay size='13px' weight={600} coin={coin}>
+            {fee}
+          </ComboDisplay>
+        </FeeFormGroup>
       )}
       {feeToggled ? (
         <CustomFeeAlertBanner type='alert'>
@@ -344,8 +319,11 @@ const FirstStep = props => {
       ) : null}
       {disableRetryAttempt && <MinFeeForRetryInvalid />}
       {disableDueToLowEth && <LowEthWarningForErc20 coin={coin} />}
-      {isFromCustody && !isMnemonicVerified ? (
-        <MnemonicRequiredForCustodySend />
+      {isFromCustody && !isMnemonicVerified ? <MnemonicRequiredForCustodySend /> : null}
+      {isFromCustody &&
+      !isEmpty(sendLimits) &&
+      sendLimits?.suggestedUpgrade?.requiredTier === TIER_TYPES.GOLD ? (
+        <UpgradeToGoldBanner limits={sendLimits} verifyIdentity={verifyIdentity} />
       ) : null}
       <SubmitFormGroup>
         <Button
@@ -375,19 +353,20 @@ const FirstStep = props => {
 
 FirstStep.propTypes = {
   coin: PropTypes.string.isRequired,
+  effectiveBalance: PropTypes.string.isRequired,
+  fee: PropTypes.string.isRequired,
+  handleSubmit: PropTypes.func.isRequired,
+  // eslint-disable-next-line
+  handleToToggle: PropTypes.func.isRequired,
+  hasErc20Balance: PropTypes.bool.isRequired,
   invalid: PropTypes.bool.isRequired,
   submitting: PropTypes.bool.isRequired,
-  fee: PropTypes.string.isRequired,
-  effectiveBalance: PropTypes.string.isRequired,
-  handleSubmit: PropTypes.func.isRequired,
-  handleToToggle: PropTypes.func.isRequired,
-  unconfirmedTx: PropTypes.bool,
-  hasErc20Balance: PropTypes.bool.isRequired
+  unconfirmedTx: PropTypes.bool
 }
 
 export default reduxForm({
+  destroyOnUnmount: false,
   form: model.components.sendEth.FORM,
   shouldError,
-  shouldWarn,
-  destroyOnUnmount: false
+  shouldWarn
 })(FirstStep)

@@ -1,20 +1,20 @@
 export default {
-  code: 'HKD',
   base: 'CENT',
+  code: 'HKD',
   displayName: 'Hong Kong Dollar',
   trade: 'HKD',
   units: {
     CENT: {
-      rate: '1',
-      symbol: '¢HK$',
+      currency: 'HKD',
       decimal_digits: 0,
-      currency: 'HKD'
+      rate: '1',
+      symbol: '¢HK$'
     },
     HKD: {
-      rate: '100',
-      symbol: 'HK$',
+      currency: 'HKD',
       decimal_digits: 2,
-      currency: 'HKD'
+      rate: '100',
+      symbol: 'HK$'
     }
   }
 }

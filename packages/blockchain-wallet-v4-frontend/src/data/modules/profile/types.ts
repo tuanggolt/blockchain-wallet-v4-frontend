@@ -1,11 +1,7 @@
 import { AxiosError } from 'axios'
 
-import {
-  NabuAddressType,
-  NabuApiErrorType,
-  RemoteDataType
-} from 'blockchain-wallet-v4/src/types'
-import { CampaignsType } from 'data/types'
+import type { NabuAddressType, NabuApiErrorType, RemoteDataType, WalletFiatType } from '@core/types'
+import type { CampaignsType } from 'data/components/identityVerification/types'
 
 import * as AT from './actionTypes'
 
@@ -26,18 +22,10 @@ export type CampaignInfoType = {
   campaignState: CampaignState
   updatedAt: string
   userCampaignState?: UserCampaignState
-  userCampaignTransactionResponseList: Array<
-    UserCampaignTransactionResponseType
-  >
+  userCampaignTransactionResponseList: Array<UserCampaignTransactionResponseType>
 }
 
-export type KycStateType =
-  | 'NONE'
-  | 'PENDING'
-  | 'UNDER_REVIEW'
-  | 'REJECTED'
-  | 'VERIFIED'
-  | 'EXPIRED'
+export type KycStateType = 'NONE' | 'PENDING' | 'UNDER_REVIEW' | 'REJECTED' | 'VERIFIED' | 'EXPIRED'
 
 export type LimitType = {
   annual: string
@@ -94,8 +82,15 @@ export type Tiers = {
   selected: 0 | 1 | 2 | 3
 }
 
+export type UserTradingCurencies = {
+  defaultWalletCurrency: WalletFiatType
+  preferredFiatTradingCurrency: WalletFiatType
+  usableFiatCurrencies: WalletFiatType[]
+}
+
 export type UserDataType = {
   address?: NabuAddressType
+  currencies: UserTradingCurencies
   dob: string
   email: string
   emailVerified: boolean
@@ -156,6 +151,9 @@ interface FetchTiersFailureAction {
     error: string
   }
   type: typeof AT.FETCH_TIERS_FAILURE
+}
+interface FetchTiersAction {
+  type: typeof AT.FETCH_TIERS
 }
 interface FetchTiersLoadingAction {
   type: typeof AT.FETCH_TIERS_LOADING
@@ -302,6 +300,7 @@ export type ProfileActionTypes =
   | FetchTiersFailureAction
   | FetchTiersLoadingAction
   | FetchTiersSuccessAction
+  | FetchTiersAction
   | FetchUser
   | FetchUserCampaignsFailureAction
   | FetchUserCampaignsLoadingAction

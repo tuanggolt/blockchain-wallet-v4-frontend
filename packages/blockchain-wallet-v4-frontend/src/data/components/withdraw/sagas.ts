@@ -1,19 +1,19 @@
-import { call, put } from 'redux-saga/effects'
+import { call, put, select } from 'redux-saga/effects'
 
-import { APIType } from 'blockchain-wallet-v4/src/network/api'
-import { errorHandler } from 'blockchain-wallet-v4/src/utils'
-import { actions } from 'data'
+import { displayFiatToFiat } from '@core/exchange'
+import { APIType } from '@core/network/api'
+import { BSPaymentMethodType, BSPaymentTypes, FiatType } from '@core/types'
+import { errorHandler } from '@core/utils'
+import { actions, selectors } from 'data'
 import { WithdrawStepEnum } from 'data/types'
 
 import { convertStandardToBase } from '../exchange/services'
-import * as A from './actions'
+import { actions as A } from './slice'
 
 const SERVICE_NAME = 'simplebuy'
 
 export default ({ api }: { api: APIType }) => {
-  const handleWithdrawSubmit = function * ({
-    payload
-  }: ReturnType<typeof A.handleCustodyWithdraw>) {
+  const handleWithdrawSubmit = function* ({ payload }: ReturnType<typeof A.handleCustodyWithdraw>) {
     const WITHDRAW_CONFIRM_FORM = 'confirmCustodyWithdraw'
 
     try {
@@ -26,9 +26,7 @@ export default ({ api }: { api: APIType }) => {
           convertStandardToBase('FIAT', payload.amount)
         )
         yield put(actions.form.stopSubmit(WITHDRAW_CONFIRM_FORM))
-        yield put(
-          actions.core.data.fiat.fetchTransactions(payload.fiatCurrency, true)
-        )
+        yield put(actions.core.data.fiat.fetchTransactions(payload.fiatCurrency, true))
         yield put(
           A.setStep({
             step: WithdrawStepEnum.WITHDRAWAL_DETAILS,
@@ -38,13 +36,11 @@ export default ({ api }: { api: APIType }) => {
       }
     } catch (e) {
       const error = errorHandler(e)
-      yield put(
-        actions.form.stopSubmit(WITHDRAW_CONFIRM_FORM, { _error: error })
-      )
+      yield put(actions.form.stopSubmit(WITHDRAW_CONFIRM_FORM, { _error: error }))
     }
   }
 
-  const showModal = function * ({ payload }: ReturnType<typeof A.showModal>) {
+  const showModal = function* ({ payload }: ReturnType<typeof A.showModal>) {
     const { fiatCurrency } = payload
 
     yield put(
@@ -55,20 +51,51 @@ export default ({ api }: { api: APIType }) => {
 
     yield put(A.setStep({ step: WithdrawStepEnum.LOADING }))
 
-    try {
-      // If user is not eligible for the requested fiat the route will 400
-      // and this code will throw so no need to check the response body
-      yield call(api.getSBPaymentAccount, fiatCurrency)
-    } catch (e) {
+    const paymentMethods: BSPaymentMethodType[] = yield call(
+      api.getBSPaymentMethods,
+      fiatCurrency,
+      true
+    )
+
+    const eligibleMethods = paymentMethods.filter(
+      (method) =>
+        method.currency === fiatCurrency &&
+        (method.type === BSPaymentTypes.BANK_ACCOUNT ||
+          method.type === BSPaymentTypes.BANK_TRANSFER)
+    )
+
+    if (eligibleMethods.length === 0) {
       return yield put(A.setStep({ step: WithdrawStepEnum.INELIGIBLE }))
     }
 
-    yield put(A.setStep({ step: WithdrawStepEnum.ENTER_AMOUNT, fiatCurrency }))
+    yield put(A.setStep({ fiatCurrency, step: WithdrawStepEnum.ENTER_AMOUNT }))
   }
 
-  const fetchFees = function * (
-    action: ReturnType<typeof A.fetchWithdrawalFees>
+  const handleWithdrawMaxAmountClick = function* (
+    action: ReturnType<typeof A.handleWithdrawMaxAmountClick>
   ) {
+    yield put(
+      actions.form.change(
+        'custodyWithdrawForm',
+        'amount',
+        displayFiatToFiat({ value: action.payload.amount })
+      )
+    )
+  }
+
+  const handleWithdrawMinAmountClick = function* (
+    action: ReturnType<typeof A.handleWithdrawMinAmountClick>
+  ) {
+    yield put(
+      actions.form.change(
+        'custodyWithdrawForm',
+        'amount',
+        displayFiatToFiat({ value: action.payload.amount })
+      )
+    )
+  }
+
+  const fetchFees = function* (action: ReturnType<typeof A.fetchWithdrawalFees>) {
     yield put(A.fetchWithdrawalFeesLoading())
     try {
       const withdrawalFees: ReturnType<typeof api.getWithdrawalFees> = yield call(
@@ -84,11 +111,15 @@ export default ({ api }: { api: APIType }) => {
     }
   }
 
-  const fetchWithdrawLocks = function * () {
+  const fetchWithdrawLocks = function* (action: ReturnType<typeof A.fetchWithdrawalLock>) {
     yield put(A.fetchWithdrawalFeesLoading())
+    const currency =
+      action.payload.currency ||
+      (selectors.components.withdraw.getFiatCurrency(yield select()) as FiatType)
     try {
       const locks: ReturnType<typeof api.getWithdrawalLocks> = yield call(
-        api.getWithdrawalLocks
+        api.getWithdrawalLocks,
+        currency
       )
       yield put(A.fetchWithdrawalLockSuccess(locks))
     } catch (e) {
@@ -97,10 +128,33 @@ export default ({ api }: { api: APIType }) => {
     }
   }
 
+  const fetchCrossBorderLimits = function* ({
+    payload
+  }: ReturnType<typeof A.fetchCrossBorderLimits>) {
+    const { currency, fromAccount, inputCurrency, outputCurrency, toAccount } = payload
+    try {
+      yield put(A.fetchCrossBorderLimitsLoading())
+      const limitsResponse: ReturnType<typeof api.getCrossBorderTransactions> = yield call(
+        api.getCrossBorderTransactions,
+        inputCurrency,
+        fromAccount,
+        outputCurrency,
+        toAccount,
+        currency
+      )
+      yield put(A.fetchCrossBorderLimitsSuccess(limitsResponse))
+    } catch (e) {
+      yield put(A.fetchCrossBorderLimitsFailure(e))
+    }
+  }
+
   return {
-    handleWithdrawSubmit,
-    showModal,
+    fetchCrossBorderLimits,
     fetchFees,
-    fetchWithdrawLocks
+    fetchWithdrawLocks,
+    handleWithdrawMaxAmountClick,
+    handleWithdrawMinAmountClick,
+    handleWithdrawSubmit,
+    showModal
   }
 }

@@ -1,129 +1,198 @@
-import React, { PureComponent } from 'react'
+import React, { useCallback, useEffect } from 'react'
 import { connect, ConnectedProps } from 'react-redux'
 import { bindActionCreators, Dispatch } from 'redux'
 
-import { Remote } from 'blockchain-wallet-v4/src'
-import { SBPaymentTypes } from 'blockchain-wallet-v4/src/network/api/simpleBuy/types'
+import { Remote } from '@core'
+import { BSPaymentTypes } from '@core/network/api/buySell/types'
 import {
   BeneficiaryType,
+  BSPaymentMethodType,
+  CrossBorderLimitsPayload,
   ExtractSuccess,
+  WalletAccountEnum,
   WalletFiatType
-} from 'blockchain-wallet-v4/src/types'
+} from '@core/types'
+import { EnterAmount } from 'components/Flyout/Brokerage'
+import { FlyoutOopsError } from 'components/Flyout/Errors'
 import { actions, selectors } from 'data'
 import { RootState } from 'data/rootReducer'
 import {
+  Analytics,
+  BankPartners,
   BankTransferAccountType,
-  UserDataType,
+  BrokerageOrderType,
   WithdrawCheckoutFormValuesType,
   WithdrawStepEnum
 } from 'data/types'
 
-import { getData } from './selectors'
-import Failure from './template.failure'
+import getData from './selectors'
 import Loading from './template.loading'
-import Success from './template.success'
 
-class EnterAmount extends PureComponent<Props> {
-  state = {}
-
-  componentDidMount() {
-    let paymentMethod: SBPaymentTypes | 'ALL' = 'ALL'
-    if (this.props.defaultMethod) {
-      paymentMethod = 'BANK_TRANSFER'
+const EnterAmountContainer = (props: Props) => {
+  useEffect(() => {
+    let paymentMethod: BSPaymentTypes | 'ALL' = 'ALL'
+    if (props.defaultMethod) {
+      paymentMethod = BSPaymentTypes.BANK_TRANSFER
+      if (
+        props.defaultMethod.partner !== BankPartners.YODLEE &&
+        props.defaultMethod.currency === 'USD'
+      ) {
+        paymentMethod = BSPaymentTypes.BANK_ACCOUNT
+      }
     }
     // We need to make this call each time we load the enter amount component
     // because the bank wires and ach have different min/max/fees
-    this.props.withdrawActions.fetchWithdrawalFees(paymentMethod)
+    props.withdrawActions.fetchWithdrawalFees({ paymentMethod })
 
-    if (!Remote.Success.is(this.props.data)) {
-      this.props.brokerageActions.fetchBankTransferAccounts()
-      this.props.custodialActions.fetchCustodialBeneficiaries(
-        this.props.fiatCurrency
-      )
-      this.props.withdrawActions.fetchWithdrawalLock()
+    if (props.fiatCurrency && !Remote.Success.is(props.data)) {
+      props.brokerageActions.fetchBankTransferAccounts()
+      props.custodialActions.fetchCustodialBeneficiaries(props.fiatCurrency)
+      props.withdrawActions.fetchWithdrawalLock({})
     }
-  }
 
-  handleSubmit = () => {
-    const { defaultBeneficiary } = this.props.data.getOrElse(
-      {} as SuccessStateType
-    )
-    const { defaultMethod } = this.props
-    const beneficiary = defaultBeneficiary || this.props.beneficiary
+    // cross border limits
+    const fromAccount = WalletAccountEnum.CUSTODIAL
+    const toAccount = WalletAccountEnum.NON_CUSTODIAL
+    props.withdrawActions.fetchCrossBorderLimits({
+      fromAccount,
+      inputCurrency: props.fiatCurrency,
+      outputCurrency: props.fiatCurrency,
+      toAccount
+    } as CrossBorderLimitsPayload)
+  }, [props.fiatCurrency])
+
+  const errorCallback = useCallback(() => {
+    props.custodialActions.fetchCustodialBeneficiaries(props.fiatCurrency)
+  }, [props.fiatCurrency])
+
+  const handleSubmit = () => {
+    const { defaultBeneficiary } = props.data.getOrElse({} as SuccessStateType)
+    const { analyticsActions, defaultMethod, fiatCurrency, formValues } = props
+    const { amount } = formValues
+    const beneficiary = defaultBeneficiary || props.beneficiary
+
+    analyticsActions.trackEvent({
+      key: Analytics.DEPOSIT_WITHDRAWAL_CLIENTS_WITHDRAWAL_AMOUNT_ENTERED,
+      properties: {
+        amount: Number(amount),
+        currency: fiatCurrency,
+        withdrawal_method: defaultMethod ? 'BANK_ACCOUNT' : 'BANK_TRANSFER'
+      }
+    })
 
     if (!beneficiary && !defaultMethod) return
 
     if (defaultMethod) {
-      this.props.withdrawActions.setStep({
-        step: WithdrawStepEnum.CONFIRM_WITHDRAW,
-        amount: this.props.formValues.amount,
-        defaultMethod: defaultMethod as BankTransferAccountType
+      props.withdrawActions.setStep({
+        amount,
+        defaultMethod: defaultMethod as BankTransferAccountType,
+        step: WithdrawStepEnum.CONFIRM_WITHDRAW
       })
-    } else if (defaultBeneficiary || this.props.beneficiary) {
-      this.props.withdrawActions.setStep({
-        step: WithdrawStepEnum.CONFIRM_WITHDRAW,
-        amount: this.props.formValues.amount,
-        beneficiary
+    } else if (defaultBeneficiary || props.beneficiary) {
+      props.withdrawActions.setStep({
+        amount,
+        beneficiary,
+        step: WithdrawStepEnum.CONFIRM_WITHDRAW
       })
     }
   }
 
-  handleBankSelection = (
-    userData: UserDataType,
-    beneficiary?: BeneficiaryType | BankTransferAccountType
-  ) => {
-    if (!beneficiary) {
-      this.props.simpleBuyActions.showModal('WithdrawModal')
-      if (userData.tiers.current === 2) {
-        return this.props.simpleBuyActions.setStep({
-          step: 'BANK_WIRE_DETAILS',
-          fiatCurrency: this.props.fiatCurrency,
-          displayBack: false,
-          addBank: true
-        })
-      } else {
-        return this.props.simpleBuyActions.setStep({
-          step: 'KYC_REQUIRED'
-        })
+  const handleBankSelection = () => {
+    if (props.userData.tiers.current === 2) {
+      props.withdrawActions.setStep({
+        fiatCurrency: props.fiatCurrency,
+        step: WithdrawStepEnum.BANK_PICKER
+      })
+    } else {
+      props.buySellActions.setStep({
+        step: 'KYC_REQUIRED'
+      })
+    }
+  }
+
+  const handleMaxButtonClicked = () => {
+    const { analyticsActions, defaultMethod, fiatCurrency, formValues } = props
+
+    analyticsActions.trackEvent({
+      key: Analytics.DEPOSIT_WITHDRAWAL_CLIENTS_WITHDRAWAL_AMOUNT_MAX_CLICKED,
+      properties: {
+        amount_currency: Number(formValues.amount),
+        currency: fiatCurrency,
+        withdrawal_method: defaultMethod ? 'BANK_ACCOUNT' : 'BANK_TRANSFER'
       }
-    }
-
-    this.props.withdrawActions.setStep({
-      step: WithdrawStepEnum.BANK_PICKER,
-      fiatCurrency: this.props.fiatCurrency
     })
   }
 
-  render() {
-    return this.props.data.cata({
-      Success: val => (
-        <Success
-          {...this.props}
-          {...val}
-          onSubmit={this.handleSubmit}
-          handleBankSelection={this.handleBankSelection}
+  return props.data.cata({
+    Failure: () => (
+      <FlyoutOopsError action='retry' data-e2e='withdrawReload' handler={errorCallback} />
+    ),
+    Loading: () => <Loading />,
+    NotAsked: () => <Loading />,
+    Success: (val) => {
+      const { crossBorderLimits, formErrors } = val
+      const bankTransferMethod = val.paymentMethods.methods.find((method) => {
+        return method.type === BSPaymentTypes.BANK_TRANSFER
+      })
+
+      const bankAccountMethod = val.paymentMethods.methods.find((method) => {
+        return method.type === BSPaymentTypes.BANK_ACCOUNT
+      })
+
+      const eligiblePaymentMethod = bankTransferMethod || bankAccountMethod
+
+      if (!eligiblePaymentMethod) {
+        return <FlyoutOopsError action='retry' data-e2e='withdrawReload' handler={errorCallback} />
+      }
+
+      // Since payment method type needs to match with the payment account that we're using here
+      // so we need to first check for the defaultMethod which is a BANK_TRANSFER type and then check
+      // for beneficiary type which is a BANK_ACCOUNT type. It's worth noting that we also pass
+      // these in a specific order "val.defaultMethod || props.beneficiary || val.defaultBeneficiary"
+      // as the paymentAccount in the EnterAmount component which is necessary
+      let selectedPaymentMethod: BSPaymentMethodType = eligiblePaymentMethod
+      if (val.defaultMethod && bankTransferMethod) {
+        selectedPaymentMethod = bankTransferMethod
+      } else if ((props.beneficiary || val.defaultBeneficiary) && bankAccountMethod) {
+        selectedPaymentMethod = bankAccountMethod
+      }
+
+      return (
+        <EnterAmount
+          onSubmit={handleSubmit}
+          initialValues={{ currency: props.fiatCurrency }}
+          fee={val.fees.minorValue}
+          fiatCurrency={props.fiatCurrency}
+          handleBack={props.handleClose}
+          handleMethodClick={handleBankSelection}
+          orderType={BrokerageOrderType.WITHDRAW}
+          paymentAccount={val.defaultMethod || props.beneficiary || val.defaultBeneficiary}
+          paymentMethod={selectedPaymentMethod}
+          withdrawableBalance={val.withdrawableBalance}
+          minWithdrawAmount={val.minAmount.minorValue}
+          crossBorderLimits={crossBorderLimits}
+          formErrors={formErrors}
+          formActions={props.formActions}
+          onMaxButtonClicked={handleMaxButtonClicked}
         />
-      ),
-      Failure: () => <Failure {...this.props} />,
-      Loading: () => <Loading />,
-      NotAsked: () => <Loading />
-    })
-  }
+      )
+    }
+  })
 }
 
 const mapStateToProps = (state: RootState, ownProps: OwnProps) => ({
   data: getData(state, ownProps),
-  formValues: selectors.form.getFormValues('custodyWithdrawForm')(
-    state
-  ) as WithdrawCheckoutFormValuesType,
-  defaultMethod: selectors.components.brokerage.getAccount(state)
+  defaultMethod: selectors.components.brokerage.getAccount(state),
+  formValues: selectors.form.getFormValues('brokerageTx')(state) as WithdrawCheckoutFormValuesType,
+  userData: selectors.modules.profile.getUserData(state).getOrFail('Unknown user')
 })
 
 const mapDispatchToProps = (dispatch: Dispatch) => ({
+  analyticsActions: bindActionCreators(actions.analytics, dispatch),
   brokerageActions: bindActionCreators(actions.components.brokerage, dispatch),
+  buySellActions: bindActionCreators(actions.components.buySell, dispatch),
   custodialActions: bindActionCreators(actions.custodial, dispatch),
   formActions: bindActionCreators(actions.form, dispatch),
-  simpleBuyActions: bindActionCreators(actions.components.simpleBuy, dispatch),
   withdrawActions: bindActionCreators(actions.components.withdraw, dispatch)
 })
 
@@ -139,4 +208,4 @@ export type SuccessStateType = ExtractSuccess<ReturnType<typeof getData>> & {
 }
 export type Props = OwnProps & ConnectedProps<typeof connector>
 
-export default connector(EnterAmount)
+export default connector(EnterAmountContainer)

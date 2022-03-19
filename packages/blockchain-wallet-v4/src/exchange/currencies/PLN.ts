@@ -1,20 +1,20 @@
 export default {
-  code: 'PLN',
   base: 'CENT',
+  code: 'PLN',
   displayName: 'Polish Zloty',
   trade: 'PLN',
   units: {
     CENT: {
-      rate: '1',
-      symbol: '¢zł',
+      currency: 'PLN',
       decimal_digits: 0,
-      currency: 'PLN'
+      rate: '1',
+      symbol: '¢zł'
     },
     PLN: {
-      rate: '100',
-      symbol: 'zł',
+      currency: 'PLN',
       decimal_digits: 2,
-      currency: 'PLN'
+      rate: '100',
+      symbol: 'zł'
     }
   }
 }

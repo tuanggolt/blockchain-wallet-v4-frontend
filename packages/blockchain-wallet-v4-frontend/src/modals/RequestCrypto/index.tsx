@@ -3,32 +3,31 @@ import { connect, ConnectedProps } from 'react-redux'
 import { bindActionCreators, compose } from 'redux'
 import { InjectedFormProps, reduxForm } from 'redux-form'
 
-import {
-  CoinType,
-  FiatType,
-  SupportedWalletCurrenciesType,
-  WalletCurrencyType
-} from 'blockchain-wallet-v4/src/types'
+import { CoinType, FiatType, WalletCurrencyType } from '@core/types'
 import Flyout, { duration, FlyoutChild } from 'components/Flyout'
 import { actions, selectors } from 'data'
+import { ModalName } from 'data/types'
 import modalEnhancer from 'providers/ModalEnhancer'
 
 import { ModalPropsType } from '../types'
 import RequestCoinSelect from './CoinSelect'
+import InitTradingAccount from './InitTradingAccount'
 import { REQUEST_FORM } from './model'
 import { getData } from './selectors'
 import RequestShowAddress from './ShowAddress'
 import { RequestFormType, RequestSteps } from './types'
 
 class RequestCrypto extends PureComponent<Props, State> {
-  state: State = {
-    show: false
+  constructor(props) {
+    super(props)
+    this.state = {
+      show: false
+    }
   }
 
   componentDidMount() {
-    /* eslint-disable */
+    // eslint-disable-next-line
     this.setState({ show: true })
-    /* eslint-enable */
   }
 
   componentWillUnmount() {
@@ -50,6 +49,11 @@ class RequestCrypto extends PureComponent<Props, State> {
     const { formValues, position, total, userClickedOutside } = this.props
     const { step } = formValues || {}
     const { show } = this.state
+    const requestProps = {
+      ...this.props,
+      handleClose: this.handleClose,
+      setStep: this.setStep
+    }
 
     return (
       <Flyout
@@ -62,16 +66,17 @@ class RequestCrypto extends PureComponent<Props, State> {
       >
         {step === RequestSteps.COIN_SELECT && (
           <FlyoutChild>
-            <RequestCoinSelect {...this.props} handleClose={this.handleClose} />
+            <RequestCoinSelect {...requestProps} />
           </FlyoutChild>
         )}
         {step === RequestSteps.SHOW_ADDRESS && (
           <FlyoutChild>
-            <RequestShowAddress
-              {...this.props}
-              handleClose={this.handleClose}
-              setStep={this.setStep}
-            />
+            <RequestShowAddress {...requestProps} />
+          </FlyoutChild>
+        )}
+        {step === RequestSteps.IDV_INTRO && (
+          <FlyoutChild>
+            <InitTradingAccount {...requestProps} />
           </FlyoutChild>
         )}
       </Flyout>
@@ -79,25 +84,35 @@ class RequestCrypto extends PureComponent<Props, State> {
   }
 }
 
-const mapStateToProps = (state): LinkStatePropsType => ({
-  formValues: selectors.form.getFormValues(REQUEST_FORM)(
-    state
-  ) as RequestFormType,
-  initialValues: {
-    currencyDisplay: selectors.core.settings
-      .getCurrency(state)
-      .getOrElse('USD'),
-    selectedCoin: selectors.router.getCoinFromPageUrl(state) || 'ALL',
-    step: RequestSteps.COIN_SELECT
-  },
-  requestableCoins: getData(state),
-  supportedCoins: selectors.core.walletOptions
-    .getSupportedCoins(state)
-    .getOrElse({} as SupportedWalletCurrenciesType),
-  walletCurrency: selectors.core.settings.getCurrency(state).getOrElse('USD')
-})
+const mapStateToProps = (state, ownProps): LinkStatePropsType => {
+  let coinSearch
+  const currencyDisplay = selectors.core.settings.getCurrency(state).getOrElse('USD')
 
-const mapDispatchToProps = dispatch => ({
+  // if user is on a transactions page for coin, preselect that coin in request
+  const coinFromUrl = selectors.router.getCoinFromPageUrl(state)
+  if (coinFromUrl) {
+    coinSearch = window.coins[coinFromUrl].coinfig.name
+  }
+
+  // other parts of the app may want to open request modal with a coin preset
+  const coinFromExternal = ownProps?.preselectedCoin
+  if (coinFromExternal) {
+    coinSearch = window.coins[coinFromExternal].coinfig.name
+  }
+
+  return {
+    formValues: selectors.form.getFormValues(REQUEST_FORM)(state) as RequestFormType,
+    initialValues: {
+      coinSearch,
+      currencyDisplay,
+      step: RequestSteps.COIN_SELECT
+    },
+    requestableCoins: getData(),
+    walletCurrency: currencyDisplay
+  }
+}
+
+const mapDispatchToProps = (dispatch) => ({
   formActions: bindActionCreators(actions.form, dispatch)
 })
 
@@ -110,12 +125,11 @@ type OwnProps = ModalPropsType & { coin?: CoinType }
 type LinkStatePropsType = {
   formValues: RequestFormType
   initialValues: {
+    coinSearch?: string
     currencyDisplay: WalletCurrencyType
-    selectedCoin: CoinType | string | undefined
     step: RequestSteps
   }
-  requestableCoins: Array<WalletCurrencyType>
-  supportedCoins: SupportedWalletCurrenciesType
+  requestableCoins: Array<string>
   walletCurrency: FiatType
 }
 export type Props = OwnProps &
@@ -125,11 +139,11 @@ export type Props = OwnProps &
 
 // 👋 Order of composition is important, do not change!
 const enhance = compose<any>(
-  modalEnhancer('REQUEST_CRYPTO_MODAL', { transition: duration }),
+  modalEnhancer(ModalName.REQUEST_CRYPTO_MODAL, { transition: duration }),
   connector,
   reduxForm({
-    form: REQUEST_FORM,
-    enableReinitialize: true
+    enableReinitialize: true,
+    form: REQUEST_FORM
   })
 )
 

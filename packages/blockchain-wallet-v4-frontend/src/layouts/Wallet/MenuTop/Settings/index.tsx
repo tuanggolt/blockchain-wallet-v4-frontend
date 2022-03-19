@@ -8,12 +8,13 @@ import Settings from './template'
 
 const SettingsContainer = (props: Props) => <Settings {...props} />
 
-const mapDispatchToProps = dispatch => ({
-  authActions: bindActionCreators(actions.auth, dispatch),
-  modalActions: bindActionCreators(actions.modals, dispatch)
+const mapDispatchToProps = (dispatch) => ({
+  modalActions: bindActionCreators(actions.modals, dispatch),
+  sessionActions: bindActionCreators(actions.session, dispatch),
+  settingsActions: bindActionCreators(actions.modules.settings, dispatch)
 })
 
-const connector = connect(undefined, mapDispatchToProps)
+const connector = connect(null, mapDispatchToProps)
 
 export type Props = ConnectedProps<typeof connector>
 

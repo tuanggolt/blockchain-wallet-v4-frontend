@@ -3,10 +3,11 @@ import { FormattedMessage } from 'react-intl'
 import moment from 'moment'
 import { pathOr } from 'ramda'
 
+import { Exchange } from '@core'
+import { formatFiat } from '@core/exchange/utils'
+import { CoinType, FiatType } from '@core/types'
 import { Button, Icon, Link, Text, TooltipHost, TooltipIcon } from 'blockchain-info-components'
-import { CoinType } from 'blockchain-wallet-v4/src/types'
 import FiatDisplay from 'components/Display/FiatDisplay'
-import { model } from 'data'
 import { convertBaseToStandard } from 'data/components/exchange/services'
 import { InterestStepMetadata } from 'data/types'
 
@@ -26,28 +27,29 @@ import {
   StatusWrapper,
   Top,
   TopText,
-  Wrapper,
+  Wrapper
 } from './model'
-
-const { INTEREST_EVENTS } = model.analytics
 
 const AccountSummary: React.FC<Props> = (props) => {
   const {
     accountBalances,
-    analyticsActions,
     coin,
+    flagEDDInterestFileUpload,
+    handleBSClick,
     handleClose,
     handleDepositClick,
-    handleSBClick,
     interestActions,
     interestLimits,
     interestRate,
+    interestUploadDocumentActions,
     showSupply,
     stepMetadata,
-    supportedCoins,
+    walletCurrency
   } = props
-  const { coinCode, coinTicker, displayName } = supportedCoins[coin]
+
+  const { coinfig } = window.coins[coin]
   const account = accountBalances && accountBalances[coin]
+  const currencySymbol = Exchange.getSymbol(walletCurrency) as string
 
   const lockupPeriod = pathOr(1, [coin, 'lockUpDuration'], interestLimits) / 86400
   const accountBalanceBase = account && account.balance
@@ -65,11 +67,11 @@ const AccountSummary: React.FC<Props> = (props) => {
       <Top>
         <TopText color='grey800' size='20px' weight={600}>
           <Row>
-            <Icon name={coinCode} color={coinCode} size='24px' style={{ marginRight: '16px' }} />
+            <Icon name={coin} color={coin} size='24px' style={{ marginRight: '16px' }} />
             <FormattedMessage
               id='modals.interest.detailstitle'
-              defaultMessage='{displayName} Interest Account'
-              values={{ displayName }}
+              defaultMessage='{displayName} Rewards Account'
+              values={{ displayName: coinfig.name }}
             />
           </Row>
           <Icon
@@ -89,13 +91,13 @@ const AccountSummary: React.FC<Props> = (props) => {
                   <FormattedMessage
                     id='modals.interest.balance'
                     defaultMessage='Your {coin} Balance'
-                    values={{ coin: displayName }}
+                    values={{ coin: coinfig.name }}
                   />
                 </Text>
                 {account ? (
                   <>
                     <Text color='grey800' size='18px' weight={600}>
-                      {accountBalanceStandard} {coinTicker}
+                      {accountBalanceStandard} {coinfig.displaySymbol}
                     </Text>
                     <FiatDisplay
                       color='grey600'
@@ -109,7 +111,7 @@ const AccountSummary: React.FC<Props> = (props) => {
                   </>
                 ) : (
                   <Text color='grey800' size='18px' weight={600}>
-                    0 {coinTicker}
+                    0 {coinfig.displaySymbol}
                   </Text>
                 )}
               </Container>
@@ -117,13 +119,13 @@ const AccountSummary: React.FC<Props> = (props) => {
                 <Text color='grey600' size='14px' weight={500} style={{ marginBottom: '5px' }}>
                   <FormattedMessage
                     id='modals.interest.totalearned'
-                    defaultMessage='Total Interest Earned'
+                    defaultMessage='Total Rewards Earned'
                   />
                 </Text>
                 {account ? (
                   <>
                     <Text color='grey800' size='18px' weight={600}>
-                      {interestBalanceStandard} {coinTicker}
+                      {interestBalanceStandard} {coinfig.displaySymbol}
                     </Text>
                     <FiatDisplay
                       color='grey600'
@@ -137,7 +139,7 @@ const AccountSummary: React.FC<Props> = (props) => {
                   </>
                 ) : (
                   <Text color='grey800' size='18px' weight={600}>
-                    0 {coinTicker}
+                    0 {coinfig.displaySymbol}
                   </Text>
                 )}
               </Container>
@@ -148,13 +150,13 @@ const AccountSummary: React.FC<Props> = (props) => {
         {stepMetadata && stepMetadata.depositSuccess && (
           <>
             <StatusWrapper>
-              <StatusIconWrapper color={showSupply ? 'orange000' : coinCode}>
+              <StatusIconWrapper color={showSupply ? 'orange000' : coin}>
                 <Icon color={showSupply ? 'orange600' : 'white'} name='timer' size='24px' />
               </StatusIconWrapper>
               <Text data-e2e='waitingConfirmation' color='grey600' size='14px' weight={500}>
                 <FormattedMessage
                   id='modals.interest.deposit.success.confirmtransfer'
-                  defaultMessage='Waiting on your transfer to be confirmed by the network. Once it has a confirmation and our team has reviewed it, it will be displayed in Interest Account History. No action is required at this time.'
+                  defaultMessage='Waiting on your transfer to be confirmed by the network. Once it has a confirmation and our team has reviewed it, it will be displayed in Rewards Account history. No action is required at this time.'
                 />
               </Text>
             </StatusWrapper>
@@ -166,7 +168,7 @@ const AccountSummary: React.FC<Props> = (props) => {
                 <Text color='grey600' size='14px' weight={500}>
                   <FormattedMessage
                     id='modals.interest.deposit.transferclears'
-                    defaultMessage='Once the transfer clears, your balance will update and you’ll start earning interest.'
+                    defaultMessage='Once the transfer clears, your balance will update and you’ll start earning rewards.'
                   />
                 </Text>
               </StatusWrapper>
@@ -175,13 +177,13 @@ const AccountSummary: React.FC<Props> = (props) => {
         )}
         {stepMetadata && stepMetadata.withdrawSuccess && (
           <StatusWrapper>
-            <StatusIconWrapper color={showSupply ? 'orange000' : coinCode}>
+            <StatusIconWrapper color={showSupply ? 'white' : coin}>
               <Icon color={showSupply ? 'orange600' : 'white'} name='timer' size='24px' />
             </StatusIconWrapper>
             <Text color='grey600' size='14px' weight={500}>
               <FormattedMessage
                 id='modals.interest.withdrawal.success'
-                defaultMessage='Waiting on your withdrawal to be confirmed by our team. It may take a few moments to show in your Interest Account History. No action is required at this time.'
+                defaultMessage='We are waiting on your withdrawal to be confirmed by the network and our team.'
               />
             </Text>
           </StatusWrapper>
@@ -189,19 +191,29 @@ const AccountSummary: React.FC<Props> = (props) => {
         {showSupply &&
           stepMetadata &&
           (stepMetadata.withdrawSuccess || stepMetadata.depositSuccess) && (
-            <StatusSupplyWrapper>
+            <StatusSupplyWrapper className={flagEDDInterestFileUpload ? 'new' : 'old'}>
               <Text color='grey900' size='16px' weight={600}>
                 <FormattedMessage
-                  id='modals.kycverification.additionalinfo.title'
-                  defaultMessage='Additional Information Required'
+                  id='modals.interest.withdrawal.supply_information_title'
+                  defaultMessage='More Info Needed'
                 />
               </Text>
               <Text color='grey600' size='12px' weight={500} style={{ marginTop: '16px' }}>
                 {stepMetadata.withdrawSuccess ? (
-                  <FormattedMessage
-                    id='modals.interest.withdrawal.supply_information_description_1'
-                    defaultMessage="You've requested a withdrawal for an amount that requires further verification for legal and compliance reasons."
-                  />
+                  flagEDDInterestFileUpload ? (
+                    <FormattedMessage
+                      id='modals.interest.withdrawal.supply_information_description_1_new'
+                      defaultMessage='Your recent withdrawal of {amount} requires further verification for legal and compliance reasons.'
+                      values={{
+                        amount: `${currencySymbol}${formatFiat(stepMetadata.withdrawalAmount)}`
+                      }}
+                    />
+                  ) : (
+                    <FormattedMessage
+                      id='modals.interest.withdrawal.supply_information_description_1'
+                      defaultMessage="You've requested a withdrawal for an amount that requires further verification for legal and compliance reasons."
+                    />
+                  )
                 ) : (
                   <FormattedMessage
                     id='modals.interest.deposit.supply_information_description_1'
@@ -211,45 +223,66 @@ const AccountSummary: React.FC<Props> = (props) => {
               </Text>
               <Text color='grey600' size='12px' weight={500} style={{ marginTop: '16px' }}>
                 {stepMetadata.withdrawSuccess ? (
-                  <FormattedMessage
-                    id='modals.interest.withdrawal.supply_information_description_2'
-                    defaultMessage="You've requested a withdrawal for an amount that requires further verification for legal and compliance reasons."
-                  />
+                  flagEDDInterestFileUpload ? (
+                    <FormattedMessage
+                      id='modals.interest.withdrawal.supply_information_description_2_new'
+                      defaultMessage='Please submit the additional information so we can start processing your withdrawal.'
+                    />
+                  ) : (
+                    <FormattedMessage
+                      id='modals.interest.withdrawal.supply_information_description_2'
+                      defaultMessage="You've requested a withdrawal for an amount that requires further verification for legal and compliance reasons."
+                    />
+                  )
                 ) : (
                   <FormattedMessage
                     id='modals.interest.deposit.supply_information_description_2'
-                    defaultMessage='Your funds are safe with us and have started accruing interest already. To avoid delays when you decide to withdraw your funds, submit your information now.'
+                    defaultMessage='Your funds are safe with us and have started accruing rewards already. To avoid delays when you decide to withdraw your funds, submit your information now.'
                   />
                 )}
               </Text>
+
               <LinkWrapper>
-                <Link
-                  href='https://share.hsforms.com/1DS4i94fURdutr8OXYOxfrg2qt44'
-                  style={{ width: '100%' }}
-                  target='_blank'
-                >
+                {flagEDDInterestFileUpload ? (
                   <Button
                     data-e2e='earnInterestSupplyMoreInformation'
                     fullwidth
                     nature='primary'
-                    onClick={() =>
-                      analyticsActions.logEvent(INTEREST_EVENTS.WITHDRAWAL.SUPPLY_INFORMATION)
-                    }
+                    onClick={() => {
+                      interestUploadDocumentActions.showModal({
+                        origin: 'InterestUploadDocument'
+                      })
+                    }}
                   >
                     <FormattedMessage
                       id='scenes.interest.submit_information'
                       defaultMessage='Submit Information'
                     />
                   </Button>
-                </Link>
+                ) : (
+                  <Link
+                    href='https://share.hsforms.com/1DS4i94fURdutr8OXYOxfrg2qt44'
+                    style={{ width: '100%' }}
+                    target='_blank'
+                  >
+                    <Button
+                      data-e2e='earnInterestSupplyMoreInformation'
+                      fullwidth
+                      nature='primary'
+                      onClick={() => {
+                        interestActions.handleWithdrawalSupplyInformation({
+                          origin: 'SavingsConfirmation'
+                        })
+                      }}
+                    >
+                      <FormattedMessage
+                        id='scenes.interest.submit_information'
+                        defaultMessage='Submit Information'
+                      />
+                    </Button>
+                  </Link>
+                )}
               </LinkWrapper>
-
-              <Text color='grey600' size='12px' weight={500}>
-                <FormattedMessage
-                  id='modals.interest.supply_information_disclaimer'
-                  defaultMessage='Our Support team may contact you if further clarification is needed.'
-                />
-              </Text>
             </StatusSupplyWrapper>
           )}
         {stepMetadata && stepMetadata.error && (
@@ -288,17 +321,17 @@ const AccountSummary: React.FC<Props> = (props) => {
               </Text>
             </Button>
             <Button
-              data-e2e='interestDeposit'
+              data-e2e='interestDepositBuyButton'
               height='48px'
               nature='empty'
-              onClick={() => handleSBClick(coin)}
+              onClick={() => handleBSClick(coin)}
               width='192px'
             >
               <Text size='16px' weight={600} color='blue600'>
                 <FormattedMessage
                   id='buttons.buy_coin'
                   defaultMessage='Buy {displayName}'
-                  values={{ displayName }}
+                  values={{ displayName: coinfig.displaySymbol }}
                 />
               </Text>
             </Button>
@@ -320,7 +353,7 @@ const AccountSummary: React.FC<Props> = (props) => {
                     id='modals.interest.statuspending'
                     defaultMessage='Pending {action}'
                     values={{
-                      action: stepMetadata.withdrawSuccess ? 'Withdrawal' : 'Transfer',
+                      action: stepMetadata.withdrawSuccess ? 'Withdrawal' : 'Transfer'
                     }}
                   />
                 </Text>
@@ -332,7 +365,7 @@ const AccountSummary: React.FC<Props> = (props) => {
             <Text data-e2e='nextPayment' color='grey600' size='14px' weight={500}>
               <FormattedMessage
                 id='modals.interest.summary.next'
-                defaultMessage='Next interest payment'
+                defaultMessage='Next rewards payment'
               />
             </Text>
             {account ? (
@@ -352,7 +385,7 @@ const AccountSummary: React.FC<Props> = (props) => {
             <Text color='grey600' size='14px' weight={500}>
               <FormattedMessage
                 id='modals.interest.summary.accrued'
-                defaultMessage='Accrued interest this month'
+                defaultMessage='Accrued rewards this month'
               />
               <TooltipHost id='modals.interest.summary.accrued.tooltip'>
                 <TooltipIcon name='info' size='12px' />
@@ -360,7 +393,7 @@ const AccountSummary: React.FC<Props> = (props) => {
             </Text>
             {account ? (
               <Text color='grey600' size='14px' weight={500}>
-                {pendingInterestStandard} {coinTicker}
+                {pendingInterestStandard} {coinfig.displaySymbol}
               </Text>
             ) : (
               <Text color='grey600' size='14px' weight={500}>
@@ -398,7 +431,7 @@ const AccountSummary: React.FC<Props> = (props) => {
           <LineVectorDetails />
           <DetailsItemContainer>
             <Text color='grey600' size='14px' weight={500}>
-              <FormattedMessage id='modals.interest.summary.rate' defaultMessage='Interest rate' />
+              <FormattedMessage id='modals.interest.summary.rate' defaultMessage='Rewards rate' />
               <TooltipHost id='modals.interest.summary.moreinterestdetails.tooltip'>
                 <TooltipIcon name='info' size='12px' />
               </TooltipHost>
@@ -409,31 +442,34 @@ const AccountSummary: React.FC<Props> = (props) => {
           </DetailsItemContainer>
         </DetailsWrapper>
       </Top>
-      <Bottom>
-        <ButtonContainer>
-          <Button
-            disabled={!account || !availToWithdraw}
-            data-e2e='interestWithdraw'
-            fullwidth
-            height='48px'
-            nature='grey800'
-            onClick={() => interestActions.showInterestModal('WITHDRAWAL', coin)}
-          >
-            <Text color='white' size='16px' weight={600}>
-              <FormattedMessage id='buttons.withdraw' defaultMessage='Withdraw' />
-            </Text>
-          </Button>
-        </ButtonContainer>
-      </Bottom>
+      {!showSupply && (
+        <Bottom>
+          <ButtonContainer>
+            <Button
+              disabled={!account || !availToWithdraw}
+              data-e2e='interestWithdraw'
+              fullwidth
+              height='48px'
+              nature='grey800'
+              onClick={() => interestActions.showInterestModal({ coin, step: 'WITHDRAWAL' })}
+            >
+              <Text color='white' size='16px' weight={600}>
+                <FormattedMessage id='buttons.withdraw' defaultMessage='Withdraw' />
+              </Text>
+            </Button>
+          </ButtonContainer>
+        </Bottom>
+      )}
     </Wrapper>
   )
 }
 
 type ParentProps = {
   coin: CoinType
+  handleBSClick: (string) => void
   handleDepositClick: () => void
-  handleSBClick: (string) => void
   stepMetadata: InterestStepMetadata
+  walletCurrency: FiatType
 }
 
 export type Props = OwnProps & LinkDispatchPropsType & DataSuccessStateType & ParentProps

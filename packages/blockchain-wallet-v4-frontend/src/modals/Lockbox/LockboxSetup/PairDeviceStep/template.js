@@ -1,5 +1,5 @@
 import React from 'react'
-import { FormattedHTMLMessage } from 'react-intl'
+import { FormattedMessage } from 'react-intl'
 import { Field, reduxForm } from 'redux-form'
 import styled from 'styled-components'
 
@@ -30,7 +30,7 @@ const ExportKeysText = styled(Text)`
 `
 
 const ClickableText = styled(Text)`
-  color: ${props => props.theme.blue600};
+  color: ${(props) => props.theme.blue600};
   cursor: pointer;
 `
 const AppManagerLink = styled(ClickableText)`
@@ -63,7 +63,7 @@ const Tooltip = styled(TooltipHost)`
     font-size: 12px;
   }
 `
-const PairDeviceStep = props => {
+const PairDeviceStep = (props) => {
   const {
     btcOpenTimeout,
     deviceType,
@@ -78,13 +78,13 @@ const PairDeviceStep = props => {
     <Wrapper>
       <TimeoutHeader>
         <Text size='20px' weight={500} style={{ marginTop: '10px' }}>
-          <FormattedHTMLMessage
+          <FormattedMessage
             id='modals.lockboxsetup.pairdevice.timeout.header'
             defaultMessage='Are you having issues?'
           />
         </Text>
         <Text size='15px' weight={400} style={{ marginTop: '4px' }}>
-          <FormattedHTMLMessage
+          <FormattedMessage
             id='modals.lockboxsetup.pairdevice.timeout.subheader'
             defaultMessage='Check the following errors:'
           />
@@ -93,15 +93,10 @@ const PairDeviceStep = props => {
       <Form>
         <FormGroup>
           <SupportListItem>
-            <Field
-              name='connected'
-              validate={[required]}
-              component={CheckBox}
-              hideErrors
-            />
+            <Field name='connected' validate={[required]} component={CheckBox} hideErrors />
             <CheckboxLabel>
               <Text size='12px' weight={400}>
-                <FormattedHTMLMessage
+                <FormattedMessage
                   id='modals.lockboxsetup.pairdevice.timeout.issue1'
                   defaultMessage='My device is connected with the supplied USB cable.'
                 />
@@ -109,29 +104,20 @@ const PairDeviceStep = props => {
             </CheckboxLabel>
           </SupportListItem>
           <SupportListItem>
-            <Field
-              name='installed'
-              validate={[required]}
-              component={CheckBox}
-              hideErrors
-            />
+            <Field name='installed' validate={[required]} component={CheckBox} hideErrors />
             <CheckboxLabel>
               <TextGroup inline>
                 <Text size='12px' weight={400}>
-                  <FormattedHTMLMessage
+                  <FormattedMessage
                     id='modals.lockboxsetup.pairdevice.timeout.issue2.part1'
                     defaultMessage='I have installed the Bitcoin app. If you do not have the app installed, click'
                   />
                 </Text>
-                <AppManagerLink
-                  size='12px'
-                  weight={400}
-                  onClick={onGoToAppManager}
-                >
-                  <FormattedHTMLMessage id='copy.here' defaultMessage='here' />
+                <AppManagerLink size='12px' weight={400} onClick={onGoToAppManager}>
+                  <FormattedMessage id='copy.here' defaultMessage='here' />
                 </AppManagerLink>
                 <Text size='12px' weight={400}>
-                  <FormattedHTMLMessage
+                  <FormattedMessage
                     id='modals.lockboxsetup.pairdevice.timeout.issue2.part3'
                     defaultMessage='to install it.'
                   />
@@ -140,15 +126,10 @@ const PairDeviceStep = props => {
             </CheckboxLabel>
           </SupportListItem>
           <SupportListItem>
-            <Field
-              name='opened'
-              validate={[required]}
-              component={CheckBox}
-              hideErrors
-            />
+            <Field name='opened' validate={[required]} component={CheckBox} hideErrors />
             <CheckboxLabel>
               <Text size='12px' weight={400}>
-                <FormattedHTMLMessage
+                <FormattedMessage
                   id='modals.lockboxsetup.pairdevice.timeout.issue3'
                   defaultMessage='The Bitcoin app is open on my device. Use the top buttons to scroll left or right to the Bitcoin app. Then press the top two buttons to open the app.'
                 />
@@ -159,31 +140,17 @@ const PairDeviceStep = props => {
       </Form>
       <ContactSupportText inline>
         <Text size='11px' weight={400}>
-          <FormattedHTMLMessage
+          <FormattedMessage
             id='modals.lockboxsetup.pairdevice.timeout.support'
             defaultMessage='Completed the above and still having issues?'
           />
         </Text>
-        <SupportText
-          href={supportLink}
-          target='_blank'
-          size='11px'
-          weight={500}
-        >
-          <FormattedHTMLMessage
-            id='buttons.contact_support'
-            defaultMessage='Contact Support'
-          />
+        <SupportText href={supportLink} target='_blank' size='11px' weight={500}>
+          <FormattedMessage id='buttons.contact_support' defaultMessage='Contact Support' />
         </SupportText>
       </ContactSupportText>
-      <Button
-        fullwidth
-        type='submit'
-        disabled={invalid}
-        onClick={onTimeoutAccept}
-        nature='primary'
-      >
-        <FormattedHTMLMessage
+      <Button fullwidth type='submit' disabled={invalid} onClick={onTimeoutAccept} nature='primary'>
+        <FormattedMessage
           id='modals.lockboxsetup.pairdevice.timeout.retry'
           defaultMessage='Retry Pairing'
         />
@@ -191,14 +158,10 @@ const PairDeviceStep = props => {
     </Wrapper>
   ) : (
     <Wrapper>
-      <Image
-        style={{ marginBottom: '18px' }}
-        name='lockbox-onboard-pairdevice'
-        width='95%'
-      />
+      <Image style={{ marginBottom: '18px' }} name='lockbox-onboard-pairdevice' width='95%' />
       <IntroWrapper>
         <Text size='12px' weight={400}>
-          <FormattedHTMLMessage
+          <FormattedMessage
             id='modals.lockboxsetup.pairdevice.intro'
             defaultMessage='Open the Bitcoin app on your {deviceType}. This will pair your device with your Blockchain wallet so that you can always view the balance of your Lockbox.'
             values={{ deviceType }}
@@ -206,15 +169,11 @@ const PairDeviceStep = props => {
         </Text>
         {showBtcWarning && (
           <ExportKeysText size='12px' weight={500}>
-            <FormattedHTMLMessage
+            <FormattedMessage
               id='modals.lockboxsetup.pairdevice.exportkeyswarning'
               defaultMessage='Your version of the BTC app requires that you allow the export of your public keys on the device. You must allow the export of 6 keys.'
             />
-            <Tooltip
-              id='lockbox.exportkeyswarning'
-              data-place='right'
-              style={{ marginTop: '3px' }}
-            >
+            <Tooltip id='lockbox.exportkeyswarning' data-place='right' style={{ marginTop: '3px' }}>
               <TooltipIcon name='info' />
             </Tooltip>
           </ExportKeysText>
@@ -222,25 +181,18 @@ const PairDeviceStep = props => {
       </IntroWrapper>
       <TextGroup inline style={{ marginBottom: '14px' }}>
         <Text size='10px' weight={400}>
-          <FormattedHTMLMessage
+          <FormattedMessage
             id='modals.lockboxsetup.pairdevice.install'
             defaultMessage="Don't have the Bitcoin app on your {deviceType}? Install it"
             values={{ deviceType }}
           />
         </Text>
-        <ClickableText
-          style={{ marginLeft: '-2px' }}
-          size='10px'
-          onClick={onGoToAppManager}
-        >
-          <FormattedHTMLMessage
-            id='modals.lockboxsetup.pairdevice.here'
-            defaultMessage='here.'
-          />
+        <ClickableText style={{ marginLeft: '-2px' }} size='10px' onClick={onGoToAppManager}>
+          <FormattedMessage id='modals.lockboxsetup.pairdevice.here' defaultMessage='here.' />
         </ClickableText>
       </TextGroup>
       <Button fullwidth disabled nature='dark'>
-        <FormattedHTMLMessage
+        <FormattedMessage
           id='modals.lockboxsetup.openbtcappstep.waiting'
           defaultMessage='Waiting...'
         />

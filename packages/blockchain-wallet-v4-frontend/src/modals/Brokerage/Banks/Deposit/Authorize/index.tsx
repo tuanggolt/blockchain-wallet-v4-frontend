@@ -1,26 +1,18 @@
 import React, { useState } from 'react'
-import { FormattedHTMLMessage, FormattedMessage } from 'react-intl'
+import { FormattedMessage } from 'react-intl'
 import { connect, ConnectedProps } from 'react-redux'
 import { path } from 'ramda'
 import { bindActionCreators, Dispatch } from 'redux'
 import { getFormValues } from 'redux-form'
 import styled from 'styled-components'
 
+import { fiatToString } from '@core/exchange/utils'
+import { FiatType } from '@core/types'
 import { Button, Icon, Image, Text } from 'blockchain-info-components'
-import { fiatToString } from 'blockchain-wallet-v4/src/exchange/currency'
-import {
-  FiatType,
-  SupportedWalletCurrenciesType
-} from 'blockchain-wallet-v4/src/types'
 import { FlyoutWrapper, Row, Title, Value } from 'components/Flyout'
-import { actions, model,selectors } from 'data'
+import { actions, selectors } from 'data'
 import { RootState } from 'data/rootReducer'
 import { BankDWStepType } from 'data/types'
-
-const {
-  ACCEPT_YAPILY_PIS_AGREEMENT,
-  DECLINE_YAPILY_PIS_AGREEMENT
-} = model.analytics.FIAT_DEPOSIT_EVENTS
 
 const Wrapper = styled.div`
   display: flex;
@@ -39,12 +31,12 @@ const DropdownTitleRow = styled.div<{ isPaymentInformation?: boolean }>`
   justify-content: space-between;
   align-items: center;
   cursor: pointer;
-  padding: ${props => (props.isPaymentInformation ? '0 40px' : 'auto')};
-  /* chevorn icon rotation */
+  padding: ${(props) => (props.isPaymentInformation ? '0 40px' : 'auto')};
+
   > span:last-child {
     size: 10px;
     transition: transform 0.2s;
-    color: ${props => props.theme.grey600};
+    color: ${(props) => props.theme.grey600};
     &.active {
       transform: rotate(180deg);
     }
@@ -53,9 +45,8 @@ const DropdownTitleRow = styled.div<{ isPaymentInformation?: boolean }>`
 const InfoTitle = styled(Title)`
   font-weight: 600;
   line-height: 1.5;
-  color: ${props => props.theme.grey900};
+  color: ${(props) => props.theme.grey900};
 `
-
 const InfoDropdown = styled.div`
   max-height: 0;
   margin-top: 0;
@@ -69,7 +60,7 @@ const InfoDropdown = styled.div`
 const InfoText = styled(Title)`
   font-size: 14px;
   font-weight: 500;
-  color: ${props => props.theme.grey600};
+  color: ${(props) => props.theme.grey600};
   line-height: 1.5;
 `
 const Bottom = styled(FlyoutWrapper)`
@@ -79,7 +70,7 @@ const Bottom = styled(FlyoutWrapper)`
   height: 100%;
 `
 const DropdownRow = styled(Row)<{ isPaymentInformation?: boolean }>`
-  padding: ${props => (props.isPaymentInformation ? '16px 0' : 'auto')};
+  padding: ${(props) => (props.isPaymentInformation ? '16px 0' : 'auto')};
 `
 
 const DropdownItem = ({ bodyText, isPaymentInformation, titleText }) => {
@@ -103,18 +94,13 @@ const DropdownItem = ({ bodyText, isPaymentInformation, titleText }) => {
 const Authorize = (props: Props) => {
   const { defaultMethod, formValues } = props
   const entity = path(['attributes', 'entity'], defaultMethod)
-  const entityName =
-    entity === 'Safeconnect(UK)' ? 'SafeConnect' : 'SafeConnect (UAB)'
+  const entityName = entity === 'Safeconnect(UK)' ? 'SafeConnect' : 'SafeConnect (UAB)'
 
   return (
     <Wrapper>
       <FlyoutWrapper style={{ paddingBottom: '10px' }}>
         <BackContainer>
-          <Image
-            name='safe-connect'
-            size='20px'
-            style={{ marginRight: '28px' }}
-          />
+          <Image name='safe-connect' size='20px' style={{ marginRight: '28px' }} />
           <FormattedMessage
             id='modals.brokerage.authorize.title'
             defaultMessage='{entityName}'
@@ -139,14 +125,14 @@ const Authorize = (props: Props) => {
         </Title>
         <Value>
           {fiatToString({
+            unit: defaultMethod?.currency as FiatType,
             // @ts-ignore
-            value: formValues?.amount,
-            unit: defaultMethod?.currency as FiatType
+            value: formValues?.amount
           })}
         </Value>
       </Row>
       <DropdownItem
-        isPaymentInformation={true}
+        isPaymentInformation
         titleText='Payment Information'
         bodyText={
           <>
@@ -157,9 +143,7 @@ const Authorize = (props: Props) => {
                   defaultMessage='Payer Name'
                 />
               </InfoText>
-              <InfoTitle>
-                {path(['details', 'accountName'], defaultMethod)}
-              </InfoTitle>
+              <InfoTitle>{path(['details', 'accountName'], defaultMethod)}</InfoTitle>
             </Row>
             <Row>
               <InfoText>
@@ -168,9 +152,7 @@ const Authorize = (props: Props) => {
                   defaultMessage='Sort Code'
                 />
               </InfoText>
-              <InfoTitle>
-                {path(['details', 'sortCode'], defaultMethod)}
-              </InfoTitle>
+              <InfoTitle>{path(['details', 'sortCode'], defaultMethod)}</InfoTitle>
             </Row>
             <Row>
               <InfoText>
@@ -179,9 +161,7 @@ const Authorize = (props: Props) => {
                   defaultMessage='Account Number'
                 />
               </InfoText>
-              <InfoTitle>
-                {path(['details', 'accountNumber'], defaultMethod)}
-              </InfoTitle>
+              <InfoTitle>{path(['details', 'accountNumber'], defaultMethod)}</InfoTitle>
             </Row>
             <Row>
               <InfoText>
@@ -199,9 +179,7 @@ const Authorize = (props: Props) => {
                   defaultMessage='Bank Name'
                 />
               </InfoText>
-              <InfoTitle>
-                {path(['details', 'bankName'], defaultMethod)}
-              </InfoTitle>
+              <InfoTitle>{path(['details', 'bankName'], defaultMethod)}</InfoTitle>
             </Row>
           </>
         }
@@ -293,9 +271,16 @@ const Authorize = (props: Props) => {
               values={{ entityName }}
             />
             {entityName !== 'SafeConnect' && (
-              <FormattedHTMLMessage
+              <FormattedMessage
                 id='modals.brokerage.authorize.bol.terms'
-                defaultMessage="View SafeConnect UAB <a href='https://yapi.ly/GDNT' rel='noopener noreferrer' target='_blank'>Terms and Conditions</a> for more information."
+                defaultMessage='View SafeConnect UAB <a>Terms and Conditions</a> for more information.'
+                values={{
+                  a: (msg) => (
+                    <a href='https://yapi.ly/GDNT' rel='noopener noreferrer' target='_blank'>
+                      {msg}
+                    </a>
+                  )
+                }}
               />
             )}
           </>
@@ -319,7 +304,6 @@ const Authorize = (props: Props) => {
             props.brokerageActions.setDWStep({
               dwStep: BankDWStepType.CONFIRM
             })
-            props.analyticsActions.logEvent(ACCEPT_YAPILY_PIS_AGREEMENT)
           }}
         >
           <FormattedMessage id='copy.approve' defaultMessage='Approve' />
@@ -334,7 +318,6 @@ const Authorize = (props: Props) => {
           style={{ marginTop: '16px' }}
           onClick={() => {
             props.handleClose()
-            props.analyticsActions.logEvent(DECLINE_YAPILY_PIS_AGREEMENT)
           }}
         >
           <FormattedMessage id='copy.deny' defaultMessage='Deny' />
@@ -347,14 +330,10 @@ const Authorize = (props: Props) => {
 const mapStateToProps = (state: RootState) => ({
   defaultMethod: selectors.components.brokerage.getAccount(state),
   fiatCurrency: selectors.core.settings.getCurrency(state),
-  supportedCoins: selectors.core.walletOptions
-    .getSupportedCoins(state)
-    .getOrElse({} as SupportedWalletCurrenciesType),
   formValues: getFormValues('brokerageTx')(state)
 })
 
 const mapDispatchToProps = (dispatch: Dispatch) => ({
-  analyticsActions: bindActionCreators(actions.analytics, dispatch),
   brokerageActions: bindActionCreators(actions.components.brokerage, dispatch)
 })
 

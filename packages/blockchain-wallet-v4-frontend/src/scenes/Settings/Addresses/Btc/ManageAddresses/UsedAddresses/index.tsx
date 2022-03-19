@@ -2,27 +2,22 @@ import React from 'react'
 import { connect, ConnectedProps } from 'react-redux'
 import { bindActionCreators } from 'redux'
 
-import { HDDerivationType } from 'core/types'
+import { HDDerivationType } from '@core/types'
 import { actions, selectors } from 'data'
 
 import UsedAddressesShowTemplate from './template'
 
 class UsedAddressesContainer extends React.PureComponent<Props> {
   onShowUsedAddresses = () => {
-    const {
-      componentActions,
-      derivation,
-      modalsActions,
-      usedAddressesVisible,
-      walletIndex
-    } = this.props
+    const { componentActions, derivation, modalsActions, usedAddressesVisible, walletIndex } =
+      this.props
     if (usedAddressesVisible) {
       componentActions.toggleUsedAddresses(walletIndex, derivation, false)
     } else {
       modalsActions.showModal('SHOW_USED_ADDRESS_MODAL', {
+        derivation,
         origin: 'SettingsPage',
-        walletIndex,
-        derivation
+        walletIndex
       })
     }
   }
@@ -49,12 +44,9 @@ const mapStateToProps = (state, ownProps) => ({
   )
 })
 
-const mapDispatchToProps = dispatch => ({
-  modalsActions: bindActionCreators(actions.modals, dispatch),
-  componentActions: bindActionCreators(
-    actions.components.manageAddresses,
-    dispatch
-  )
+const mapDispatchToProps = (dispatch) => ({
+  componentActions: bindActionCreators(actions.components.manageAddresses, dispatch),
+  modalsActions: bindActionCreators(actions.modals, dispatch)
 })
 
 const connector = connect(mapStateToProps, mapDispatchToProps)

@@ -3,33 +3,30 @@ import { FormattedMessage } from 'react-intl'
 import { InjectedFormProps, reduxForm } from 'redux-form'
 import styled from 'styled-components'
 
-import { Icon, Text } from 'blockchain-info-components'
-import { fiatToString } from 'blockchain-wallet-v4/src/exchange/currency'
-import {
-  SBPaymentMethodType,
-  WalletFiatEnum,
-  WalletFiatType
-} from 'blockchain-wallet-v4/src/types'
+import { fiatToString } from '@core/exchange/utils'
+import { BSPaymentMethodType, BSPaymentTypes, WalletFiatEnum, WalletFiatType } from '@core/types'
+import { Box, Image, Text } from 'blockchain-info-components'
 import { SettingContainer, SettingSummary } from 'components/Setting'
 import { convertBaseToStandard } from 'data/components/exchange/services'
+import { getBankLogoImageName } from 'services/images'
+import { media } from 'services/styles'
 
-import { CardDetails, CardWrapper, Child } from '../styles'
+import { CardDetails, Child } from '../styles'
 import { Props as OwnProps, SuccessStateType } from '.'
 
 const BankIconWrapper = styled.div`
   margin-right: 14px;
-  width: 24px;
   justify-content: center;
   flex-direction: column;
   display: flex;
 `
 
 const getAvailableAmountForCurrency = (
-  methods: SBPaymentMethodType[],
+  methods: BSPaymentMethodType[],
   currency: WalletFiatType
 ) => {
   const method = methods.find(
-    method => method.type === 'FUNDS' && method.currency === currency
+    (method) => method.type === BSPaymentTypes.FUNDS && method.currency === currency
   )
   if (method) {
     return Number(method.limits.max)
@@ -37,25 +34,25 @@ const getAvailableAmountForCurrency = (
   return null
 }
 
-const Success: React.FC<InjectedFormProps<{}, Props> & Props> = props => {
+const Success: React.FC<InjectedFormProps<{}, Props> & Props> = (props) => {
   const walletBeneficiaries = props.beneficiaries.filter(
-    beneficiary => beneficiary.currency in WalletFiatEnum
+    (beneficiary) => beneficiary.currency in WalletFiatEnum
   )
 
   return (
     <SettingContainer>
       <SettingSummary>
         <div>
-          {walletBeneficiaries.map((beneficiary, i) => {
+          {walletBeneficiaries.map((beneficiary) => {
             const availableAmount = getAvailableAmountForCurrency(
               props.paymentMethods.methods,
               beneficiary.currency as WalletFiatType
             )
             return (
-              <CardWrapper key={i}>
+              <Box style={{ width: '430px' }} isMobile={media.mobile} key={beneficiary.id}>
                 <Child>
                   <BankIconWrapper>
-                    <Icon name='bank-filled' color='blue600' size='16px' />
+                    <Image name={getBankLogoImageName(beneficiary.agent)} />
                   </BankIconWrapper>
                   <CardDetails>
                     <Text size='16px' color='grey800' weight={600}>
@@ -69,12 +66,8 @@ const Success: React.FC<InjectedFormProps<{}, Props> & Props> = props => {
                           defaultMessage='{amount} Daily Limit'
                           values={{
                             amount: fiatToString({
-                              value: convertBaseToStandard(
-                                'FIAT',
-                                availableAmount
-                              ),
-                              unit: (beneficiary.currency ||
-                                'EUR') as WalletFiatType
+                              unit: (beneficiary.currency || 'EUR') as WalletFiatType,
+                              value: convertBaseToStandard('FIAT', availableAmount)
                             })
                           }}
                         />
@@ -89,7 +82,7 @@ const Success: React.FC<InjectedFormProps<{}, Props> & Props> = props => {
                     </Text>
                   </CardDetails>
                 </Child>
-              </CardWrapper>
+              </Box>
             )
           })}
         </div>

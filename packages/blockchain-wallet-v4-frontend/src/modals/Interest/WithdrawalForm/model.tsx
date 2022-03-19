@@ -1,8 +1,8 @@
 import { BaseFieldProps, Field } from 'redux-form'
 import styled from 'styled-components'
 
+import { CoinType } from '@core/types'
 import { Icon, Text } from 'blockchain-info-components'
-import { CoinType } from 'blockchain-wallet-v4/src/types'
 import { OrangeCartridge } from 'components/Cartridge'
 import { FlyoutWrapper } from 'components/Flyout'
 import { Form } from 'components/Form'
@@ -69,14 +69,10 @@ export const CustomFormLabel = styled.div`
   margin-top: 24px;
   margin-bottom: 10px;
 `
-const displayCoinPadding = (displayCoin: boolean) => (displayCoin ? '46px' : '42px')
 
 export const CustomField = styled(Field)<BaseFieldProps & { coin: CoinType; displayCoin: boolean }>`
   > input {
-    padding-left: ${(props) =>
-      props.displayCoin && (props.coin === 'USDT' || props.coin === 'PAX')
-        ? '64px'
-        : displayCoinPadding(props.displayCoin)};
+    padding-left: ${(props) => `${props.coin.length * (props.displayCoin ? 18 : 14)}px`};
   }
 `
 export const AmountFieldContainer = styled.div`
@@ -131,8 +127,5 @@ export const CustomOrangeCartridge = styled(OrangeCartridge)`
   margin-top: 24px;
 `
 export const CartrigeText = styled.div`
-  display: inline;
-  font-size: 14px;
-  font-weight: 500;
-  color: ${(props) => props.theme.orange800};
+  margin-top: 16px;
 `

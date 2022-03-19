@@ -1,14 +1,13 @@
-import { TimeRange } from 'blockchain-wallet-v4/src/types'
+import { TimeRange } from '@core/types'
 
-import * as priceChartActionTypes from '../components/priceChart/actionTypes'
+import { coinClicked, timeClicked } from '../components/priceChart/slice'
 import * as AT from './actionTypes'
 import { PreferencesActionTypes, PreferencesState } from './types'
 
 const INITIAL_STATE: PreferencesState = {
-  language: 'en',
-  culture: 'en-GB',
-  theme: 'default',
   coinDisplayed: true,
+  culture: 'en-GB',
+  language: 'en',
   priceChart: {
     coin: 'BTC',
     time: TimeRange.MONTH
@@ -21,20 +20,21 @@ const INITIAL_STATE: PreferencesState = {
       fix: 'CRYPTO'
     }
   },
-  showKycCompleted: true,
+  showAirdropClaimModal: true,
   showBackupReminder: true,
   showInterestInfoBox: true,
+  showKycCompleted: true,
   showKycGetStarted: true,
   showLockboxSoftwareDownload: true,
   showSwapBanner: true,
   showSwapUpgradeModal: true,
   showUpgradeForAirdropModal: false,
-  showAirdropClaimModal: true,
   showUpgradeForStxAirdropModal: true,
+  theme: 'default',
   totalBalancesDropdown: {
-    wallet: true,
     lockbox: false,
-    pending: false
+    pending: false,
+    wallet: true
   }
 }
 
@@ -61,7 +61,7 @@ export function preferencesReducer(
         culture
       }
     }
-    case AT.SET_SB_CHECKOUT_FIX: {
+    case AT.SET_BS_CHECKOUT_FIX: {
       return {
         ...state,
         sbCheckout: {
@@ -116,8 +116,9 @@ export function preferencesReducer(
       }
     }
     // @ts-ignore
-    case priceChartActionTypes.PRICE_CHART_COIN_CLICKED: {
+    case coinClicked.type: {
       // @ts-ignore
+
       const { coin } = action.payload
       return {
         ...state,
@@ -128,7 +129,7 @@ export function preferencesReducer(
       }
     }
     // @ts-ignore
-    case priceChartActionTypes.PRICE_CHART_TIME_CLICKED: {
+    case timeClicked.type: {
       // @ts-ignore
       const { time } = action.payload
       return {
@@ -188,6 +189,6 @@ export function preferencesReducer(
       }
     }
     default:
-      return state
+      return { ...state }
   }
 }

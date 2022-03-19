@@ -1,5 +1,5 @@
 import React from 'react'
-import { FormattedHTMLMessage } from 'react-intl'
+import { FormattedMessage } from 'react-intl'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
@@ -10,14 +10,14 @@ const SendHeader = styled(ModalHeader)`
   border-bottom: 0;
   padding-bottom: 8px;
   > div:first-child * {
-    color: ${props => props.theme.blue900};
+    color: ${(props) => props.theme.blue900};
   }
 `
 
-const SendEth = props => (
-  <Modal size='medium' position={props.position} total={props.total}>
+const SendEth = (props) => (
+  <Modal size='large' position={props.position} total={props.total}>
     <SendHeader icon='send' onClose={props.closeAll}>
-      <FormattedHTMLMessage
+      <FormattedMessage
         id='modals.sendeth.cointitle'
         defaultMessage='Send {coinDisplayName}'
         values={{ coinDisplayName: props.coinDisplayName }}
@@ -29,11 +29,11 @@ const SendEth = props => (
 )
 
 SendEth.propTypes = {
+  closeAll: PropTypes.func.isRequired,
   coin: PropTypes.string.isRequired,
   coinDisplayName: PropTypes.string.isRequired,
   position: PropTypes.number.isRequired,
-  total: PropTypes.number.isRequired,
-  closeAll: PropTypes.func.isRequired
+  total: PropTypes.number.isRequired
 }
 
 export default SendEth

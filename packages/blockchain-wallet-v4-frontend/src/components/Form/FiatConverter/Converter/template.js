@@ -1,9 +1,9 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import styled from 'styled-components'
+import styled, { css } from 'styled-components'
 
+import { Exchange } from '@core'
 import { Text, TextInput } from 'blockchain-info-components'
-import { Exchange } from 'blockchain-wallet-v4/src'
 
 const Wrapper = styled.div`
   width: 100%;
@@ -13,8 +13,9 @@ const Wrapper = styled.div`
   flex-direction: column;
   justify-content: center;
   align-items: flex-start;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
-    Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu,
+    Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  margin-bottom: ${(props) => (props.showError ? '20px' : '0')};
 `
 const FiatConverterInput = styled.div`
   display: flex;
@@ -23,7 +24,7 @@ const FiatConverterInput = styled.div`
   width: 100%;
   height: 100%;
   margin-bottom: 0;
-  margin-top: ${props => (props.marginTop ? props.marginTop : '')};
+  margin-top: ${(props) => (props.marginTop ? props.marginTop : '')};
 `
 const Container = styled.div`
   position: relative;
@@ -39,7 +40,7 @@ const Unit = styled.span`
   font-size: 12px;
   font-weight: 500;
   position: absolute;
-  color: ${props => props.theme['text-black']};
+  color: ${(props) => props.theme['text-black']};
 `
 const Equals = styled(Text)`
   margin: 0 8px;
@@ -49,14 +50,22 @@ const Error = styled(Text)`
   display: block;
   font-size: 12px;
   height: 15px;
-  top: ${props => (props.errorBottom ? '40px' : '-20px')};
-  right: 0;
+  top: ${(props) =>
+    props.showError && props.errorBottom ? '50px' : props.errorBottom ? '40px' : '-20px'};
+  ${(props) =>
+    props.showError && props.errorBottom
+      ? css`
+          left: 0;
+        `
+      : css`
+          right: 0;
+        `}
 `
-const getErrorState = meta => {
+const getErrorState = (meta) => {
   return meta.touched && meta.invalid ? 'invalid' : 'initial'
 }
 
-const Converter = props => {
+const Converter = (props) => {
   const {
     className,
     coin,
@@ -74,14 +83,15 @@ const Converter = props => {
   } = props
   const errorState = getErrorState(meta)
 
+  const showError = !!(meta.touched && meta.error)
   return (
-    <Wrapper className={className}>
+    <Wrapper className={className} showError={showError}>
       <FiatConverterInput marginTop={marginTop}>
         <Container>
           <TextInput
             value={fiat}
             disabled={disabled}
-            placeholder={Exchange.getSymbol(currency) + '0.00'}
+            placeholder={`${Exchange.getSymbol(currency)}0.00`}
             onBlur={handleBlur}
             onChange={handleFiatChange}
             onFocus={handleFocus}
@@ -115,6 +125,7 @@ const Converter = props => {
           color='error'
           className='error'
           data-e2e='fiatConverterError'
+          showError={showError}
         >
           {meta.error}
         </Error>
@@ -125,9 +136,8 @@ const Converter = props => {
 
 Converter.propTypes = {
   coin: PropTypes.string,
-  fiat: PropTypes.string,
-  unit: PropTypes.string.isRequired,
   currency: PropTypes.string.isRequired,
+  fiat: PropTypes.string,
   handleBlur: PropTypes.func.isRequired,
   handleCoinChange: PropTypes.func.isRequired,
   handleFiatChange: PropTypes.func.isRequired,

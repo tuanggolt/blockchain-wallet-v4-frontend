@@ -1,65 +1,77 @@
-import algoTransactions from './algoTransactions/sagas'
 import bchTransactions from './bchTransactions/sagas'
-import borrow from './borrow/sagas'
 import brokerage from './brokerage/sagas'
 import btcTransactions from './btcTransactions/sagas'
-import dotTransactions from './dotTransactions/sagas'
+import buySell from './buySell/sagas'
+import coinTransactions from './coinTransactions/sagas'
+import debitCard from './debitCard/sagas'
 import ethTransactions from './ethTransactions/sagas'
 import fiatTransactions from './fiatTransactions/sagas'
+import fundRecovery from './fundRecovery/sagas'
 import identityVerification from './identityVerification/sagas'
 import importBtcAddress from './importBtcAddress/sagas'
 import interest from './interest/sagas'
+import interestUploadDocument from './interestUploadDocument/sagas'
 import manageAddresses from './manageAddresses/sagas'
+import nfts from './nfts/sagas'
 import onboarding from './onboarding/sagas'
 import priceChart from './priceChart/sagas'
-import priceTicker from './priceTicker/sagas'
+import recurringBuy from './recurringBuy/sagas'
 import refresh from './refresh/sagas'
-import remindWalletGuid from './remindWalletGuid/sagas'
+import request from './request/sagas'
 import resetWallet2fa from './resetWallet2fa/sagas'
 import send from './send/sagas'
 import sendBch from './sendBch/sagas'
 import sendBtc from './sendBtc/sagas'
+import sendCrypto from './sendCrypto/sagas'
 import sendEth from './sendEth/sagas'
 import sendXlm from './sendXlm/sagas'
 import settings from './settings/sagas'
 import signMessage from './signMessage/sagas'
-import simpleBuy from './simpleBuy/sagas'
 import swap from './swap/sagas'
+import taxCenter from './taxCenter/sagas'
+import termsAndConditions from './termsAndConditions/sagas'
 import uploadDocuments from './uploadDocuments/sagas'
 import veriff from './veriff/sagas'
+import walletConnect from './walletConnect/sagas'
 import withdraw from './withdraw/sagas'
 import xlmTransactions from './xlmTransactions/sagas'
 
 export default ({ api, coreSagas, networks }) => ({
-  algoTransactions: algoTransactions(),
   bchTransactions: bchTransactions(),
-  borrow: borrow({ api, coreSagas, networks }),
-  brokerage: brokerage({ api, coreSagas, networks }),
+  brokerage: brokerage({ api }),
   btcTransactions: btcTransactions(),
-  dotTransactions: dotTransactions(),
+  buySell: buySell({ api, coreSagas, networks }),
+  coinTransactions: coinTransactions(),
+  debitCard: debitCard({ api }),
   ethTransactions: ethTransactions(),
   fiatTransactions: fiatTransactions(),
+  fundRecovery: fundRecovery({ api }),
   identityVerification: identityVerification({ api, coreSagas, networks }),
   importBtcAddress: importBtcAddress({ api, coreSagas, networks }),
   interest: interest({ api, coreSagas, networks }),
+  interestUploadDocument: interestUploadDocument({ api }),
   manageAddresses: manageAddresses({ api, networks }),
+  nfts: nfts({ api }),
   onboarding: onboarding(),
   priceChart: priceChart(),
-  priceTicker: priceTicker({ coreSagas }),
+  recurringBuy: recurringBuy({ api }),
   refresh: refresh(),
-  remindWalletGuid: remindWalletGuid({ api }),
+  request: request({ api, coreSagas, networks }),
   resetWallet2fa: resetWallet2fa({ api }),
   send: send({ api, coreSagas, networks }),
   sendBch: sendBch({ api, coreSagas, networks }),
   sendBtc: sendBtc({ api, coreSagas, networks }),
+  sendCrypto: sendCrypto({ api }),
   sendEth: sendEth({ api, coreSagas, networks }),
   sendXlm: sendXlm({ api, coreSagas, networks }),
   settings: settings({ api, coreSagas }),
   signMessage: signMessage({ coreSagas }),
-  simpleBuy: simpleBuy({ api, coreSagas, networks }),
   swap: swap({ api, coreSagas, networks }),
+  taxCenter: taxCenter({ api }),
+  termsAndConditions: termsAndConditions({ api }),
   uploadDocument: uploadDocuments({ api }),
   veriff: veriff({ api, coreSagas }),
+  walletConnect: walletConnect({ coreSagas }),
   withdraw: withdraw({ api }),
   xlmTransactions: xlmTransactions()
 })

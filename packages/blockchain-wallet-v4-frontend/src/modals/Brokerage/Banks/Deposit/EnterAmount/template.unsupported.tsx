@@ -2,12 +2,13 @@ import React from 'react'
 import { FormattedMessage } from 'react-intl'
 import styled from 'styled-components'
 
+import { FiatEligibleType } from '@core/types'
 import { Button, Icon, Image, Text } from 'blockchain-info-components'
 import { FlyoutWrapper } from 'components/Flyout'
 
-import { LinkStatePropsType, Props as OwnProps, SuccessStateType } from '.'
+import { Props as OwnProps } from '.'
 
-export type Props = OwnProps & SuccessStateType & LinkStatePropsType
+export type Props = OwnProps & { eligibility: FiatEligibleType }
 
 const Top = styled(FlyoutWrapper)`
   padding-bottom: 0;
@@ -77,22 +78,18 @@ export const Unsupported = ({
           <>
             <FormattedMessage
               id='modals.simplebuy.unsupported-subcontent'
-              defaultMessage="Currently we don't support buying crypto with"
-            />{' '}
-            {fiatCurrency}
-            {'. '}
+              defaultMessage="Currently we don't support buying crypto with {currency}."
+              values={{
+                currency: fiatCurrency
+              }}
+            />
           </>
         ) : (
           <>
             <FormattedMessage
               id='modals.simplebuy.unsupported-subcontent-1'
-              defaultMessage="Well this is awkward. We don't support buying crypto yet for"
-            />{' '}
-            <FormattedMessage
-              id='modals.simplebuy.fiatregion'
-              defaultMessage='your region'
+              defaultMessage="Well this is awkward. We don't support buying crypto yet for your region."
             />
-            {'. '}
           </>
         )}
         <FormattedMessage
@@ -101,7 +98,7 @@ export const Unsupported = ({
         />
       </Subcontent>
       <Button
-        data-e2e='submitSBAmount'
+        data-e2e='submitBSAmount'
         height='48px'
         size='16px'
         nature='primary'

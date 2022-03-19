@@ -3,7 +3,7 @@ import { connect, ConnectedProps } from 'react-redux'
 import { pathOr } from 'ramda'
 import { bindActionCreators } from 'redux'
 
-import { TimeRange } from 'blockchain-wallet-v4/src/types'
+import { TimeRange } from '@core/types'
 import { actions } from 'data'
 
 import { getData } from './selectors'
@@ -19,18 +19,16 @@ const ChartContainer = (props: Props) => {
   }, [props.cache.coin, props.cache.time])
 
   return props.data.cata({
-    Success: value => (
-      <Chart currency={props.currency} coin={value.coin} data={value.data} />
-    ),
-    Failure: message => <Error>{message}</Error>,
+    Failure: (message) => <Error>{message}</Error>,
     Loading: () => <Loading />,
-    NotAsked: () => <Loading />
+    NotAsked: () => <Loading />,
+    Success: (value) => <Chart currency={props.currency} coin={value.coin} data={value.data} />
   })
 }
 
-const mapStateToProps = state => getData(state)
+const mapStateToProps = (state) => getData(state)
 
-const mapDispatchToProps = dispatch => ({
+const mapDispatchToProps = (dispatch) => ({
   priceChartActions: bindActionCreators(actions.components.priceChart, dispatch)
 })
 

@@ -7,6 +7,7 @@ import styled from 'styled-components'
 import { Button, Icon, Image, Text } from 'blockchain-info-components'
 import Flyout, { duration, FlyoutWrapper } from 'components/Flyout'
 import { actions, selectors } from 'data'
+import { ModalName } from 'data/types'
 import modalEnhancer from 'providers/ModalEnhancer'
 
 const CustomFlyoutWrapper = styled(FlyoutWrapper)`
@@ -45,7 +46,7 @@ const IconBackground = styled.div`
   width: 48px;
   height: 48px;
   min-width: 48px;
-  background-color: ${props => props.theme.blue000};
+  background-color: ${(props) => props.theme.blue000};
   border-radius: 48px;
 `
 
@@ -80,15 +81,15 @@ class WelcomeContainer extends React.PureComponent<Props> {
     }, duration)
   }
 
-  handleSBClick = () => {
+  handleBSClick = () => {
     const { cryptoCurrency } = this.props
     this.setState({ show: false })
     setTimeout(() => {
       this.props.close()
       if (cryptoCurrency) {
-        this.props.simpleBuyActions.showModal('WelcomeModal', cryptoCurrency)
+        this.props.buySellActions.showModal({ cryptoCurrency, origin: 'WelcomeModal' })
       } else {
-        this.props.simpleBuyActions.showModal('WelcomeModal')
+        this.props.buySellActions.showModal({ origin: 'WelcomeModal' })
       }
     }, duration / 2)
   }
@@ -97,12 +98,7 @@ class WelcomeContainer extends React.PureComponent<Props> {
     const { show } = this.state
     const { ...rest } = this.props
     return (
-      <Flyout
-        {...rest}
-        onClose={this.props.close}
-        isOpen={show}
-        data-e2e='welcomeModal'
-      >
+      <Flyout {...rest} onClose={this.props.close} isOpen={show} data-e2e='welcomeModal'>
         <CustomFlyoutWrapper>
           <Header>
             <Image name='intro-hand' width='28px' height='28px' />
@@ -134,11 +130,11 @@ class WelcomeContainer extends React.PureComponent<Props> {
           <ButtonWrapper>
             <Button
               capitalize
-              data-e2e='toSimpleBuyModal'
+              data-e2e='toBuySellModal'
               fullwidth
               height='48px'
               nature='primary'
-              onClick={this.handleSBClick}
+              onClick={this.handleBSClick}
               size='16px'
             >
               <FormattedMessage
@@ -155,10 +151,7 @@ class WelcomeContainer extends React.PureComponent<Props> {
               onClick={this.handleClose}
               size='16px'
             >
-              <FormattedMessage
-                id='modals.wallet.welcome.sb.skip'
-                defaultMessage='Skip'
-              />
+              <FormattedMessage id='modals.wallet.welcome.sb.skip' defaultMessage='Skip' />
             </Button>
           </ButtonWrapper>
         </CustomFlyoutWrapper>
@@ -167,17 +160,13 @@ class WelcomeContainer extends React.PureComponent<Props> {
   }
 }
 
-const mapStateToProps = state => ({
-  cryptoCurrency:
-    selectors.components.simpleBuy.getCryptoCurrency(state) || undefined
+const mapStateToProps = (state) => ({
+  cryptoCurrency: selectors.components.buySell.getCryptoCurrency(state) || undefined
 })
 
 const mapDispatchToProps = (dispatch): LinkDispatchPropsType => ({
-  onboardingActions: bindActionCreators(
-    actions.components.onboarding,
-    dispatch
-  ),
-  simpleBuyActions: bindActionCreators(actions.components.simpleBuy, dispatch)
+  buySellActions: bindActionCreators(actions.components.buySell, dispatch),
+  onboardingActions: bindActionCreators(actions.components.onboarding, dispatch)
 })
 
 const connector = connect(mapStateToProps, mapDispatchToProps)
@@ -190,16 +179,14 @@ type OwnPropsType = {
 }
 
 type LinkDispatchPropsType = {
+  buySellActions: typeof actions.components.buySell
   onboardingActions: typeof actions.components.onboarding
-  simpleBuyActions: typeof actions.components.simpleBuy
 }
 
-type Props = OwnPropsType &
-  LinkDispatchPropsType &
-  ConnectedProps<typeof connector>
+type Props = OwnPropsType & LinkDispatchPropsType & ConnectedProps<typeof connector>
 
 const enhance = compose<any>(
-  modalEnhancer('WELCOME_MODAL', { transition: duration }),
+  modalEnhancer(ModalName.WELCOME_MODAL, { transition: duration }),
   connector
 )
 

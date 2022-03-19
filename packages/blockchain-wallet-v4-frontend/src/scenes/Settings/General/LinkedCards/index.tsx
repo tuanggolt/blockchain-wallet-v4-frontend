@@ -2,14 +2,11 @@ import React, { PureComponent } from 'react'
 import { connect, ConnectedProps } from 'react-redux'
 import { bindActionCreators, Dispatch } from 'redux'
 
-import {
-  FiatType,
-  RemoteDataType,
-  SBCardType,
-  SBPaymentMethodsType
-} from 'blockchain-wallet-v4/src/types'
+import { BSCardType, BSPaymentMethodsType, FiatType, RemoteDataType } from '@core/types'
 import { actions, selectors } from 'data'
+import { ModalName } from 'data/modals/types'
 import { RootState } from 'data/rootReducer'
+import { UserDataType } from 'data/types'
 
 import { getData } from './selectors'
 import Loading from './template.loading'
@@ -17,51 +14,62 @@ import Success from './template.success'
 
 class LinkedCards extends PureComponent<Props> {
   componentDidMount() {
-    this.props.simpleBuyActions.fetchSBCards()
-    this.props.simpleBuyActions.fetchSBPaymentMethods(this.props.fiatCurrency)
+    this.props.buySellActions.fetchCards(false)
+    this.props.buySellActions.fetchPaymentMethods(this.props.fiatCurrency)
   }
 
-  handleCreditCardClick = () => {
-    this.props.simpleBuyActions.showModal('SettingsGeneral')
-    this.props.simpleBuyActions.setFiatCurrency(
-      this.props.fiatCurrency || 'USD'
-    )
-    this.props.simpleBuyActions.setStep({
-      step: 'ADD_CARD'
+  handleCreditCardClick = async () => {
+    await this.props.buySellActions.showModal({ origin: 'SettingsGeneral' })
+    await this.props.buySellActions.setFiatCurrency(this.props.fiatCurrency || 'USD')
+    await this.props.buySellActions.setStep({
+      step: 'DETERMINE_CARD_PROVIDER'
     })
-    this.props.simpleBuyActions.addCardFinished()
+    await this.props.buySellActions.addCardFinished()
+  }
+
+  proceedToUserVerification = () => {
+    this.props.modalActions.showModal(ModalName.COMPLETE_USER_PROFILE, {
+      origin: 'SettingsGeneral'
+    })
   }
 
   render() {
     return this.props.data.cata({
-      Success: val => (
-        <Success
-          {...val}
-          {...this.props}
-          handleCreditCardClick={this.handleCreditCardClick}
-        />
-      ),
-      Loading: () => <Loading />,
       Failure: () => null,
-      NotAsked: () => null
+      Loading: () => <Loading />,
+      NotAsked: () => null,
+      Success: (val) => {
+        const isUserVerified = val.userData.tiers && val.userData.tiers.current > 0
+        return (
+          <Success
+            {...val}
+            {...this.props}
+            handleCreditCardClick={
+              isUserVerified ? this.handleCreditCardClick : this.proceedToUserVerification
+            }
+          />
+        )
+      }
     })
   }
 }
 
 const mapStateToProps = (state: RootState): LinkStatePropsType => ({
-  fiatCurrency: selectors.components.simpleBuy.getFiatCurrency(state),
-  data: getData(state)
+  data: getData(state),
+  fiatCurrency: selectors.core.settings.getCurrency(state).getOrElse('USD')
 })
 
 const mapDispatchToProps = (dispatch: Dispatch) => ({
-  simpleBuyActions: bindActionCreators(actions.components.simpleBuy, dispatch)
+  buySellActions: bindActionCreators(actions.components.buySell, dispatch),
+  modalActions: bindActionCreators(actions.modals, dispatch)
 })
 
 const connector = connect(mapStateToProps, mapDispatchToProps)
 
 export type SuccessStateType = {
-  cards: Array<SBCardType>
-  paymentMethods: SBPaymentMethodsType
+  cards: Array<BSCardType>
+  paymentMethods: BSPaymentMethodsType
+  userData: UserDataType
 }
 type LinkStatePropsType = {
   data: RemoteDataType<string, SuccessStateType>

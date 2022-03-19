@@ -27,7 +27,12 @@ const IconColumn = styled.div`
 `
 
 const buildMessageTemplate = (messageText) => (
-  <Text size='14px' weight={600} style={{ marginLeft: '10px' }} data-e2e='toastMessage'>
+  <Text
+    size='14px'
+    weight={600}
+    style={{ marginLeft: '10px', wordBreak: 'break-all' }}
+    data-e2e='toastMessage'
+  >
     {messageText}
   </Text>
 )
@@ -50,8 +55,8 @@ const getAlertContent = (message, data = undefined) => {
             <TextGroup inline>
               <Text size='12px' weight={500}>
                 <FormattedMessage
-                  id='components.alerts.loweth.body1'
-                  defaultMessage='Sending USD Digital requires ETH. Your balance is low, Swap to get more ETH.'
+                  id='components.alerts.loweth.body2'
+                  defaultMessage='Sending Erc20s requires ETH. Your balance is low, Swap to get more ETH.'
                 />
               </Text>
               <Text>
@@ -198,6 +203,13 @@ const getAlertContent = (message, data = undefined) => {
           defaultMessage='Failed to deauthorize this browser.'
         />
       )
+    case C.DEVICE_MISMATCH:
+      return buildMessageTemplate(
+        <FormattedMessage
+          id='components.alerts.device_mismatch'
+          defaultMessage='Device verification failed. Please refresh and try again.'
+        />
+      )
     case C.EMAIL_CODE_SENT_SUCCESS:
       return buildMessageTemplate(
         <FormattedMessage
@@ -289,33 +301,6 @@ const getAlertContent = (message, data = undefined) => {
           defaultMessage='Failed to retrieve used addresses.'
         />
       )
-    case C.FIRST_PAX_TRADE_INFO:
-      return buildMessageTemplate(
-        <>
-          <Text>
-            <FormattedMessage
-              id='components.alerts.first_pax_trade_info_dyk'
-              defaultMessage='Did you know?'
-            />
-          </Text>
-          <TextGroup inline>
-            <Text size='12px' weight={400}>
-              <FormattedMessage
-                id='components.alerts.first_usdd_trade_info'
-                defaultMessage='Now that you own USD Digital, you need to own ETH to Send or Swap.'
-              />
-            </Text>
-            <Link
-              href='https://support.blockchain.com/hc/en-us/articles/360027492092-Why-do-I-need-ETH-to-send-my-PAX-'
-              target='_blank'
-              weight={500}
-              size='12px'
-            >
-              <FormattedMessage id='buttons.learn_more' defaultMessage='Learn More' />
-            </Link>
-          </TextGroup>
-        </>
-      )
     case C.FETCH_UNUSED_ADDRESSES_ERROR:
       return buildMessageTemplate(
         <FormattedMessage
@@ -385,10 +370,7 @@ const getAlertContent = (message, data = undefined) => {
             <Text>
               <LinkContainer to='/help'>
                 <Link size='12px' weight={500}>
-                  <FormattedMessage
-                    id='components.alerts.iprestriction_login_error-link'
-                    defaultMessage='Need some help?'
-                  />
+                  <FormattedMessage id='copy.need_some_help' defaultMessage='Need some help?' />
                 </Link>
               </LinkContainer>
             </Text>
@@ -470,6 +452,13 @@ const getAlertContent = (message, data = undefined) => {
         <FormattedMessage id='components.alerts.login_failed' defaultMessage='Login failed' />
       )
 
+    case C.MAGIC_LINK_PARSE_ERROR:
+      return buildMessageTemplate(
+        <FormattedMessage
+          id='components.alerts.message_parse_failed'
+          defaultMessage='Verification failed. Please use your Wallet ID to sign in.'
+        />
+      )
     case C.MESSAGE_SIGN_ERROR:
       return buildMessageTemplate(
         <FormattedMessage
@@ -498,11 +487,25 @@ const getAlertContent = (message, data = undefined) => {
           defaultMessage='Mobile verification code sent'
         />
       )
+    case C.MOBILE_LOGIN_CONFIRM:
+      return buildMessageTemplate(
+        <FormattedMessage
+          id='components.alerts.mobile_login_confirm'
+          defaultMessage='Please confirm the login on your mobile device.'
+        />
+      )
+    case C.MOBILE_LOGIN_DECLINED:
+      return buildMessageTemplate(
+        <FormattedMessage
+          id='components.alerts.mobile_login_declined'
+          defaultMessage='Mobile Log In Failed. Scan QR code to try again.'
+        />
+      )
     case C.MOBILE_LOGIN_ERROR:
       return buildMessageTemplate(
         <FormattedMessage
           id='components.alerts.mobile_login_error'
-          defaultMessage='Error logging into your wallet'
+          defaultMessage='Error logging into your account'
         />
       )
     case C.MOBILE_LOGIN_ERROR_QRCODE_EXPIRED:
@@ -517,6 +520,13 @@ const getAlertContent = (message, data = undefined) => {
         <FormattedMessage
           id='components.alerts.mobile_login_scan_error'
           defaultMessage='Could not scan the mobile login QR Code'
+        />
+      )
+    case C.MOBILE_LOGIN_SUCCESS:
+      return buildMessageTemplate(
+        <FormattedMessage
+          id='components.alerts.mobile_login_success'
+          defaultMessage='Success! Logging in...'
         />
       )
     case C.MOBILE_UPDATE_ERROR:
@@ -551,7 +561,7 @@ const getAlertContent = (message, data = undefined) => {
       return buildMessageTemplate(
         <FormattedMessage
           id='components.alerts.new_wallet_create_error'
-          defaultMessage='Failed to create new wallet'
+          defaultMessage='Failed to create new account'
         />
       )
     case C.NEW_ADDRESS_GENERATE_ERROR:
@@ -565,7 +575,7 @@ const getAlertContent = (message, data = undefined) => {
       return buildMessageTemplate(
         <FormattedMessage
           id='components.alerts.new_wallet_create_success'
-          defaultMessage='Successfully created new wallet'
+          defaultMessage='Successfully created new account'
         />
       )
     case C.PAYMENT_RECEIVED_BCH:
@@ -621,7 +631,7 @@ const getAlertContent = (message, data = undefined) => {
       return buildMessageTemplate(
         <FormattedMessage
           id='components.alerts.please_login'
-          defaultMessage='Please login to your wallet to proceed'
+          defaultMessage='Please login to your account to proceed'
         />
       )
     case C.PLEASE_TRY_AGAIN:
@@ -663,14 +673,14 @@ const getAlertContent = (message, data = undefined) => {
       return buildMessageTemplate(
         <FormattedMessage
           id='components.alerts.register_error'
-          defaultMessage='Wallet could not be created'
+          defaultMessage='Account could not be created'
         />
       )
     case C.REGISTER_SUCCESS:
       return buildMessageTemplate(
         <FormattedMessage
           id='components.alerts.register_successful'
-          defaultMessage='Wallet successfully created'
+          defaultMessage='Account successfully created'
         />
       )
     case C.RENAME_BCH_WALLET_ERROR:
@@ -713,21 +723,21 @@ const getAlertContent = (message, data = undefined) => {
       return buildMessageTemplate(
         <FormattedMessage
           id='components.alerts.restore_error'
-          defaultMessage='Error restoring your wallet'
+          defaultMessage='Error restoring your account'
         />
       )
     case C.RESTORE_SUCCESS:
       return buildMessageTemplate(
         <FormattedMessage
           id='components.alerts.restore_success'
-          defaultMessage='Your wallet has been successfully restored'
+          defaultMessage='Your account has been successfully restored'
         />
       )
     case C.RESTORE_WALLET_INFO:
       return buildMessageTemplate(
         <FormattedMessage
           id='components.alerts.restore_wallet_info'
-          defaultMessage='Restoring wallet...'
+          defaultMessage='Restoring account...'
         />
       )
     case C.SECOND_PASSWORD_INVALID_ERROR:
@@ -958,6 +968,20 @@ const getAlertContent = (message, data = undefined) => {
           defaultMessage='Failed to update imported address label'
         />
       )
+    case C.VERIFY_DEVICE_EXPIRY:
+      return buildMessageTemplate(
+        <FormattedMessage
+          id='components.alerts.verify_device_expiry'
+          defaultMessage='Device verification session expired.'
+        />
+      )
+    case C.VERIFY_DEVICE_FAILED:
+      return buildMessageTemplate(
+        <FormattedMessage
+          id='components.alerts.verify_device_failed'
+          defaultMessage='Failed to verify device.'
+        />
+      )
     case C.VERIFY_EMAIL_SENT:
       return buildMessageTemplate(
         <FormattedMessage
@@ -968,8 +992,8 @@ const getAlertContent = (message, data = undefined) => {
     case C.VERIFY_EMAIL_SENT_ERROR:
       return buildMessageTemplate(
         <FormattedMessage
-          id='components.alerts.verify_email_sent_error'
-          defaultMessage='Error sending verification email. Please try again later.'
+          id='components.alerts.verify_email_sent_error_try_again'
+          defaultMessage='Error sending verification email. Please try again.'
         />
       )
     case C.WALLET_LOADING_ERROR:
@@ -990,7 +1014,7 @@ const getAlertContent = (message, data = undefined) => {
       return buildMessageTemplate(
         <FormattedMessage
           id='components.alerts.wallet_upgrade_error'
-          defaultMessage='Failed to upgrade to HD and save wallet.'
+          defaultMessage='Failed to upgrade and save account.'
         />
       )
     case C.YUBIKEY_VERIFY_ERROR:
@@ -1107,6 +1131,27 @@ const getAlertContent = (message, data = undefined) => {
             values={data}
           />
         )
+      )
+    case C.KYC_RESET_ERROR:
+      return buildMessageTemplate(
+        <FormattedMessage
+          id='components.alerts.kyc_reset_error'
+          defaultMessage='Restoring account failed. Please try again.'
+        />
+      )
+    case C.SAVE_ADDITIONAL_DOCUMENTS_ERROR:
+      return buildMessageTemplate(
+        <FormattedMessage
+          id='components.alerts.save_additional_documents_error'
+          defaultMessage='Save of additional information failed'
+        />
+      )
+    case C.UPLOAD_ADDITIONAL_DOCUMNETS_FILES_ERROR:
+      return buildMessageTemplate(
+        <FormattedMessage
+          id='components.alerts.upload_additional_documents_files_error'
+          defaultMessage='Upload of documents failed'
+        />
       )
     default:
       return buildMessageTemplate(

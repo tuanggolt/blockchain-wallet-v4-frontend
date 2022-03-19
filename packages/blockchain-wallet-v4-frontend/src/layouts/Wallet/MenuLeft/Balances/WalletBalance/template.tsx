@@ -1,33 +1,23 @@
 import React from 'react'
-import { mapObjIndexed, values } from 'ramda'
 
-import { SupportedWalletCurrencyType } from 'blockchain-wallet-v4/src/types'
 import { Wrapper } from 'components/Balances'
 
 import { BalancesWrapper } from '../model'
 import Balance from './Balance'
-import PendingSBTransactions from './PendingSBTransactions'
+import PendingBSTransactions from './PendingBSTransactions'
 
-const Template = props => {
+const Template = (props) => {
   const { coins } = props
 
   return (
     <Wrapper>
-      <PendingSBTransactions />
+      <PendingBSTransactions />
       <BalancesWrapper className={props.isActive ? 'active' : ''}>
-        {values(
-          mapObjIndexed(
-            (coin: SupportedWalletCurrencyType) =>
-              coin.method &&
-              coin.invited && (
-                <Balance
-                  coin={coin.coinCode}
-                  coinTicker={coin.coinTicker}
-                  key={coin.coinCode}
-                />
-              ),
-            coins
-          )
+        {coins.map(
+          (coin) => (
+            <Balance coin={coin.symbol} coinTicker={coin.symbol} key={coin.symbol} />
+          ),
+          coins
         )}
       </BalancesWrapper>
     </Wrapper>

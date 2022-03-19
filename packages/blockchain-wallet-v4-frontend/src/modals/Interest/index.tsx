@@ -2,11 +2,11 @@ import React, { PureComponent } from 'react'
 import { connect, ConnectedProps } from 'react-redux'
 import { bindActionCreators, compose, Dispatch } from 'redux'
 
-import { CoinType, FiatType } from 'blockchain-wallet-v4/src/types'
+import { CoinType, FiatType } from '@core/types'
 import Flyout, { duration, FlyoutChild } from 'components/Flyout'
 import { actions, selectors } from 'data'
 import { RootState } from 'data/rootReducer'
-import { InterestStep, InterestStepMetadata } from 'data/types'
+import { InterestStep, InterestStepMetadata, ModalName } from 'data/types'
 import modalEnhancer from 'providers/ModalEnhancer'
 
 import { ModalPropsType } from '../types'
@@ -30,21 +30,25 @@ class Interest extends PureComponent<Props, State> {
   handleClose = () => {
     this.setState({ show: false })
     setTimeout(() => {
-      this.props.close()
+      this.props.close(ModalName.INTEREST_MODAL)
     }, duration)
   }
 
-  handleSBClick = (coin: CoinType) => {
+  handleBSClick = (coin: CoinType) => {
     this.setState({ show: false })
+    this.props.close(ModalName.INTEREST_MODAL)
     setTimeout(() => {
-      this.props.close()
-      this.props.simpleBuyActions.showModal('InterestPage', coin)
+      this.props.buySellActions.showModal({
+        cryptoCurrency: coin,
+        orderType: 'BUY',
+        origin: 'InterestPage'
+      })
     }, duration / 2)
   }
 
   showSupply = (show: boolean) => {
     this.setState({
-      showSupplyInformation: show,
+      showSupplyInformation: show
     })
   }
 
@@ -63,16 +67,21 @@ class Interest extends PureComponent<Props, State> {
           <FlyoutChild>
             <AccountSummary
               handleClose={this.handleClose}
-              handleSBClick={() => this.handleSBClick(coin)}
+              handleBSClick={() => this.handleBSClick(coin)}
               stepMetadata={step.data}
               coin={coin}
+              walletCurrency={walletCurrency}
               showSupply={this.state.showSupplyInformation}
             />
           </FlyoutChild>
         )}
         {step.name === 'DEPOSIT' && (
           <FlyoutChild>
-            <DepositForm coin={coin} setShowSupply={this.showSupply} />
+            <DepositForm
+              coin={coin}
+              walletCurrency={walletCurrency}
+              setShowSupply={this.showSupply}
+            />
           </FlyoutChild>
         )}
         {step.name === 'WITHDRAWAL' && (
@@ -92,13 +101,13 @@ class Interest extends PureComponent<Props, State> {
 const mapStateToProps = (state: RootState): LinkStatePropsType => ({
   coin: selectors.components.interest.getCoinType(state),
   step: selectors.components.interest.getStep(state),
-  walletCurrency: selectors.core.settings.getCurrency(state).getOrElse('USD'),
+  walletCurrency: selectors.core.settings.getCurrency(state).getOrElse('USD')
 })
 
 const mapDispatchToProps = (dispatch: Dispatch) => ({
+  buySellActions: bindActionCreators(actions.components.buySell, dispatch),
   fetchInterestEDDStatus: () => dispatch(actions.components.interest.fetchEDDStatus()),
-  interestActions: bindActionCreators(actions.components.interest, dispatch),
-  simpleBuyActions: bindActionCreators(actions.components.simpleBuy, dispatch),
+  interestActions: bindActionCreators(actions.components.interest, dispatch)
 })
 
 const connector = connect(mapStateToProps, mapDispatchToProps)
@@ -116,6 +125,9 @@ type LinkStatePropsType = {
 type State = { show: boolean; showSupplyInformation: boolean }
 type Props = OwnProps & ConnectedProps<typeof connector>
 
-const enhance = compose(modalEnhancer('INTEREST_MODAL', { transition: duration }), connector)
+const enhance = compose(
+  modalEnhancer(ModalName.INTEREST_MODAL, { transition: duration }),
+  connector
+)
 
 export default enhance(Interest)

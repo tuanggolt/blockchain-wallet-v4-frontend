@@ -1,13 +1,23 @@
 import { pathOr } from 'ramda'
 import { fork, join, put, select, take } from 'redux-saga/effects'
 
-import { Remote } from 'blockchain-wallet-v4/src'
+import { Remote } from '@core'
 import { actions, actionTypes, selectors } from 'data'
 
 export const logLocation = 'balances'
 export const balancePath = ['payload', 'info', 'final_balance']
 
-export const getEthBalance = function * () {
+export const fetchBalances = function* () {
+  yield put(actions.core.data.bch.fetchData())
+  yield put(actions.core.data.btc.fetchData())
+  yield put(actions.core.data.xlm.fetchData())
+  yield put(actions.core.data.eth.fetchData())
+  yield put(actions.core.data.eth.fetchErc20Data())
+  yield put(actions.components.refresh.refreshRates())
+  yield put(actions.custodial.fetchRecentSwapTxs())
+}
+
+export const getEthBalance = function* () {
   try {
     const ethBalanceR = yield select(selectors.core.data.eth.getBalance)
     if (!Remote.Success.is(ethBalanceR)) {
@@ -23,22 +33,17 @@ export const getEthBalance = function * () {
   }
 }
 
-export const getErc20Balance = function * (token) {
+export const getErc20Balance = function* (token) {
   try {
-    const erc20BalanceR = yield select(
-      selectors.core.data.eth.getErc20Balance,
-      token
-    )
+    const erc20BalanceR = yield select(selectors.core.data.eth.getErc20Balance, token)
     if (!Remote.Success.is(erc20BalanceR)) {
       yield put(actions.core.data.eth.fetchErc20Data(token))
       const erc20Data = yield take([
-        action =>
-          action.type ===
-            actionTypes.core.data.eth.FETCH_ERC20_TOKEN_DATA_SUCCESS &&
+        (action) =>
+          action.type === actionTypes.core.data.eth.FETCH_ERC20_TOKEN_DATA_SUCCESS &&
           action.payload.token === token,
-        action =>
-          action.type ===
-            actionTypes.core.data.eth.FETCH_ERC20_TOKEN_DATA_FAILURE &&
+        (action) =>
+          action.type === actionTypes.core.data.eth.FETCH_ERC20_TOKEN_DATA_FAILURE &&
           action.payload.token === token
       ])
       return pathOr(0, balancePath, erc20Data)
@@ -49,7 +54,7 @@ export const getErc20Balance = function * (token) {
   }
 }
 
-export const getBtcBalance = function * () {
+export const getBtcBalance = function* () {
   try {
     const btcBalanceR = yield select(selectors.core.data.btc.getBalance)
     if (!Remote.Success.is(btcBalanceR)) {
@@ -65,7 +70,7 @@ export const getBtcBalance = function * () {
   }
 }
 
-export const getBchBalance = function * () {
+export const getBchBalance = function* () {
   try {
     const bchBalanceR = yield select(selectors.core.data.bch.getBalance)
     if (!Remote.Success.is(bchBalanceR)) {
@@ -81,7 +86,7 @@ export const getBchBalance = function * () {
   }
 }
 
-export const getXlmBalance = function * () {
+export const getXlmBalance = function* () {
   try {
     const xlmBalanceR = yield select(selectors.core.data.xlm.getTotalBalance)
     if (!Remote.Success.is(xlmBalanceR)) {
@@ -94,21 +99,15 @@ export const getXlmBalance = function * () {
   }
 }
 
-export const waitForAllBalances = function * () {
+export const waitForAllBalances = function* () {
   const btcT = yield fork(getBtcBalance)
   const bchT = yield fork(getBchBalance)
   const ethT = yield fork(getEthBalance)
-  const paxT = yield fork(getErc20Balance, 'pax')
-  const usdtT = yield fork(getErc20Balance, 'usdt')
-  const wdgldT = yield fork(getErc20Balance, 'wdgld')
   const xlmT = yield fork(getXlmBalance)
   const btc = yield join(btcT)
   const bch = yield join(bchT)
   const eth = yield join(ethT)
-  const pax = yield join(paxT)
-  const usdt = yield join(usdtT)
-  const wdgld = yield join(wdgldT)
   const xlm = yield join(xlmT)
 
-  return { btc, eth, bch, pax, xlm, usdt, wdgld }
+  return { bch, btc, eth, xlm }
 }

@@ -1,4 +1,4 @@
-import { Erc20CoinType, RemoteDataType } from 'core/types'
+import { Erc20CoinType, RemoteDataType } from '@core/types'
 
 export type IOType = {
   accountIndex: number
@@ -69,8 +69,4 @@ export type XlmTxType = {
   type: 'sent' | 'received' | 'transferred'
 }
 
-export type ProcessedTxType =
-  | BtcTxType
-  | BchTxType
-  | EthProcessedTxType
-  | XlmTxType
+export type ProcessedTxType = BtcTxType | BchTxType | EthProcessedTxType | XlmTxType

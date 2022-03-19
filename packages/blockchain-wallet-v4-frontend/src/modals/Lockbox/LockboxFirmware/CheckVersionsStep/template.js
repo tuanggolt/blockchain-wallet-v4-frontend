@@ -25,10 +25,10 @@ const ButtonContainer = styled.div`
 const RotateSyncContainer = styled(RotateSync)`
   margin-left: 15px;
 `
-const CheckVersionsStep = props => {
+const CheckVersionsStep = (props) => {
   const { onStartInstall, status } = props
   return (
-    <React.Fragment>
+    <>
       <Title>
         <Text>
           <FormattedMessage
@@ -61,10 +61,7 @@ const CheckVersionsStep = props => {
       <ButtonContainer>
         {status ? (
           <Button fullwidth nature='primary' onClick={onStartInstall}>
-            <FormattedMessage
-              id='buttons.continue'
-              defaultMessage='Install Update'
-            />
+            Install Update
           </Button>
         ) : (
           <Button fullwidth disabled nature='dark'>
@@ -76,7 +73,7 @@ const CheckVersionsStep = props => {
           </Button>
         )}
       </ButtonContainer>
-    </React.Fragment>
+    </>
   )
 }
 

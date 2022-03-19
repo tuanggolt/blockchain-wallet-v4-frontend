@@ -1,50 +1,27 @@
 import base64 from 'base-64'
 import BigNumber from 'bignumber.js'
 import bip21 from 'bip21'
-import {
-  anyPass,
-  equals,
-  includes,
-  map,
-  path,
-  pathOr,
-  prop,
-  startsWith,
-  sum,
-  values
-} from 'ramda'
-import {
-  all,
-  call,
-  delay,
-  join,
-  put,
-  select,
-  spawn,
-  take
-} from 'redux-saga/effects'
+import { anyPass, equals, includes, map, path, pathOr, prop, startsWith } from 'ramda'
+import { all, call, delay, join, put, select, spawn, take } from 'redux-saga/effects'
 
-import { Exchange, utils } from 'blockchain-wallet-v4/src'
+import { Exchange, utils } from '@core'
 import {
   InterestAfterTransactionType,
+  RatesType,
+  TermsAndConditionType,
   WalletFiatType
-} from 'blockchain-wallet-v4/src/types'
-import { errorHandler } from 'blockchain-wallet-v4/src/utils'
-import { actions, actionTypes, model, selectors } from 'data'
-import {
-  getBchBalance,
-  getBtcBalance,
-  getXlmBalance,
-  waitForAllBalances
-} from 'data/balance/sagas'
+} from '@core/types'
+import { errorHandler } from '@core/utils'
+import { actions, model, selectors } from 'data'
+import { getBchBalance, getBtcBalance } from 'data/balance/sagas'
 import { parsePaymentRequest } from 'data/bitpay/sagas'
+import { ModalName } from 'data/modals/types'
 import profileSagas from 'data/modules/profile/sagas'
+import { UserDataType } from 'data/types'
 import * as C from 'services/alerts'
 
 import { WAIT_FOR_INTEREST_PROMO_MODAL } from './model'
 import { DeepLinkGoal, GoalType } from './types'
-
-const { TRANSACTION_EVENTS } = model.analytics
 
 const origin = 'Goals'
 
@@ -53,7 +30,7 @@ export default ({ api, coreSagas, networks }) => {
   const { NONE } = KYC_STATES
   const { EXPIRED, GENERAL } = DOC_RESUBMISSION_REASONS
 
-  const { waitForUserData } = profileSagas({
+  const { fetchUser, waitForUserData } = profileSagas({
     api,
     coreSagas,
     networks
@@ -61,66 +38,61 @@ export default ({ api, coreSagas, networks }) => {
 
   const logLocation = 'goals/sagas'
 
-  const isKycNotFinished = function * () {
+  const isKycNotFinished = function* () {
     yield call(waitForUserData)
-    return (yield select(selectors.modules.profile.getUserKYCState))
+    return selectors.modules.profile
+      .getUserKYCState(yield select())
       .map(equals(NONE))
       .getOrElse(false)
   }
 
-  const defineLinkAccountGoal = function * (search) {
+  const defineLinkAccountGoal = function* (search) {
     const params = new URLSearchParams(search)
     yield put(
-      actions.goals.saveGoal('linkAccount', {
-        linkId: params.get('link_id')
+      actions.goals.saveGoal({
+        data: {
+          linkId: params.get('link_id')
+        },
+        name: 'linkAccount'
       })
     )
     yield delay(3000)
   }
 
-  const defineReferralGoal = function * (search) {
+  const defineReferralGoal = function* (search) {
     const params = new URLSearchParams(search)
     yield put(
-      actions.goals.saveGoal('referral', {
-        name: params.get('campaign'),
-        code: params.get('campaign_code'),
-        email: params.get('campaign_email')
+      actions.goals.saveGoal({
+        data: {
+          code: params.get('campaign_code'),
+          email: params.get('campaign_email'),
+          name: params.get('campaign')
+        },
+        name: 'referral'
       })
     )
     const destination = params.get('newUser') ? '/signup' : '/login'
     yield put(actions.router.push(destination))
   }
 
-  const defineKycGoal = function * (search) {
+  const defineKycGoal = function* (search) {
     // /#/open/kyc?tier={1, 2, ...}
     const params = new URLSearchParams(search)
 
     const tier = params.get('tier') || TIERS[2]
 
-    yield put(actions.goals.saveGoal('kyc', { tier }))
+    yield put(actions.goals.saveGoal({ data: { tier }, name: 'kyc' }))
   }
 
-  const defineSwapGoal = function * () {
-    yield put(actions.goals.saveGoal('swap', {}))
+  const defineSwapGoal = function* () {
+    yield put(actions.goals.saveGoal({ data: {}, name: 'swap' }))
   }
 
-  const defineInterestGoal = function * () {
-    yield put(actions.goals.saveGoal('interest', {}))
+  const defineInterestGoal = function* () {
+    yield put(actions.goals.saveGoal({ data: {}, name: 'interest' }))
   }
 
-  const defineSendXlmGoal = function * (pathname, search) {
-    // /#/open/xlm?address={address}&amount={amount}
-    const params = new URLSearchParams(search)
-    const address = params.get('address')
-    const amount = params.get('amount')
-    const memo = params.get('memo')
-
-    yield put(actions.goals.saveGoal('xlmPayment', { address, amount, memo }))
-    yield put(actions.router.push('/wallet'))
-    yield put(actions.alerts.displayInfo(C.PLEASE_LOGIN))
-  }
-
-  const defineSimpleBuyGoal = function * (search) {
+  const defineBuySellGoal = function* (search) {
     // /#/open/simple-buy?crypto={BTC | ETH | ...}&amount={1 | 99 | 200 | ...}&email={test@blockchain.com | ...}&fiatCurrency={USD | GBP | ...}
     const params = new URLSearchParams(search)
     const amount = params.get('amount')
@@ -129,11 +101,14 @@ export default ({ api, coreSagas, networks }) => {
     const fiatCurrency = params.get('fiatCurrency')
 
     yield put(
-      actions.goals.saveGoal('simpleBuy', {
-        amount,
-        crypto,
-        email,
-        fiatCurrency
+      actions.goals.saveGoal({
+        data: {
+          amount,
+          crypto,
+          email,
+          fiatCurrency
+        },
+        name: 'buySell'
       })
     )
 
@@ -142,7 +117,7 @@ export default ({ api, coreSagas, networks }) => {
     }
   }
 
-  const defineSendCryptoGoal = function * (pathname, search) {
+  const defineSendCryptoGoal = function* (pathname, search) {
     // special case to handle bitcoin bip21 link integration
     const decodedPayload = decodeURIComponent(pathname + search)
     const isBchPayPro = includes('bitcoincash', decodedPayload)
@@ -158,7 +133,7 @@ export default ({ api, coreSagas, networks }) => {
         coin: isBchPayPro ? 'BCH' : 'BTC',
         r
       }
-      yield put(actions.goals.saveGoal('paymentProtocol', data))
+      yield put(actions.goals.saveGoal({ data, name: 'paymentProtocol' }))
       yield put(actions.router.push('/wallet'))
       yield put(actions.alerts.displayInfo(C.PLEASE_LOGIN))
     } else {
@@ -166,13 +141,13 @@ export default ({ api, coreSagas, networks }) => {
       const { address } = bip21Payload
       const { amount, message } = bip21Payload.options || {}
       const data = { address, amount, description: message }
-      yield put(actions.goals.saveGoal('payment', data))
+      yield put(actions.goals.saveGoal({ data, name: 'payment' }))
       yield put(actions.router.push('/wallet'))
       yield put(actions.alerts.displayInfo(C.PLEASE_LOGIN))
     }
   }
 
-  const defineLogLevel = function * (search) {
+  const defineLogLevel = function* (search) {
     const params = new URLSearchParams(search)
     const level = params.get('level')
     // @ts-ignore
@@ -180,28 +155,59 @@ export default ({ api, coreSagas, networks }) => {
     yield put(actions.logs.setLogLevel(level))
   }
 
-  const defineActionGoal = function * (pathname, search) {
+  const defineActionGoal = function* (pathname, search) {
     try {
       // Other scenarios with actions encoded in base64
       const decoded = JSON.parse(base64.decode(pathname + search))
       if (!prop('name', decoded) || !prop('data', decoded)) return
       const { data, name } = decoded
-      yield put(actions.goals.saveGoal(name, data))
+      yield put(actions.goals.saveGoal({ data, name }))
       yield put(actions.router.push('/wallet'))
     } catch (e) {
-      yield put(
-        actions.logs.logErrorMessage(
-          logLocation,
-          'decodeGoal',
-          pathname + search
-        )
-      )
+      yield put(actions.logs.logErrorMessage(logLocation, 'decodeGoal', pathname + search))
     }
   }
 
-  const defineDeepLinkGoals = function * (pathname, search) {
-    if (startsWith(DeepLinkGoal.XLM, pathname)) {
-      return yield call(defineSendXlmGoal, pathname, search)
+  const defineWalletConnectGoal = function* (search) {
+    // cant use URLSearchParams as it parses the oddly formed uri incorrectly
+    const walletConnectURI = search.split('?uri=')[1]
+    yield put(actions.goals.saveGoal({ data: walletConnectURI, name: 'walletConnect' }))
+  }
+
+  const defineDeepLinkGoals = function* (pathname, search) {
+    // /#/open/wc?uri={wc_uri}
+    if (startsWith(DeepLinkGoal.WALLET_CONNECT, pathname)) {
+      return yield call(defineWalletConnectGoal, search)
+    }
+
+    // /#/open/kyc?tier={0 | 1 | 2 | ...} tier is optional
+    if (startsWith(DeepLinkGoal.KYC, pathname)) {
+      return yield call(defineKycGoal, search)
+    }
+
+    // crypto send / bitpay links
+    if (includes(DeepLinkGoal.BITCOIN, pathname)) {
+      return yield call(defineSendCryptoGoal, pathname, search)
+    }
+
+    // /#/log-level?level=verbose
+    if (startsWith(DeepLinkGoal.LOG_LEVEL, pathname)) {
+      return yield call(defineLogLevel, search)
+    }
+
+    // /#/open/simple-buy
+    if (startsWith(DeepLinkGoal.SIMPLE_BUY, pathname)) {
+      return yield call(defineBuySellGoal, search)
+    }
+
+    // /#/open/swap
+    if (startsWith(DeepLinkGoal.SWAP, pathname)) {
+      return yield call(defineSwapGoal)
+    }
+
+    // /#/open/rewards /#/open/interest
+    if (startsWith(DeepLinkGoal.REWARDS, pathname) || startsWith(DeepLinkGoal.INTEREST, pathname)) {
+      return yield call(defineInterestGoal)
     }
 
     if (startsWith(DeepLinkGoal.LINK_ACCOUNT, pathname)) {
@@ -212,40 +218,10 @@ export default ({ api, coreSagas, networks }) => {
       return yield call(defineReferralGoal, search)
     }
 
-    // /#/open/kyc?tier={0 | 1 | 2 | ...} tier is optional
-    if (startsWith(DeepLinkGoal.KYC, pathname)) {
-      return yield call(defineKycGoal, search)
-    }
-
-    // TODO check why it uses includes
-    // crypto send / bitpay links
-    if (includes(DeepLinkGoal.BITCOIN, pathname)) {
-      return yield call(defineSendCryptoGoal, pathname, search)
-    }
-
-    if (startsWith(DeepLinkGoal.LOG_LEVEL, pathname)) {
-      return yield call(defineLogLevel, search)
-    }
-
-    // /#/open/simple-buy
-    if (startsWith(DeepLinkGoal.SIMPLE_BUY, pathname)) {
-      return yield call(defineSimpleBuyGoal, search)
-    }
-
-    // /#/open/swap
-    if (startsWith(DeepLinkGoal.SWAP, pathname)) {
-      return yield call(defineSwapGoal)
-    }
-
-    // /#/open/interest
-    if (startsWith(DeepLinkGoal.INTEREST, pathname)) {
-      return yield call(defineInterestGoal)
-    }
-
     yield call(defineActionGoal, pathname, search)
   }
 
-  const defineGoals = function * () {
+  const defineGoals = function* () {
     const search = yield select(selectors.router.getSearch)
     const pathname = yield select(selectors.router.getPathname)
     yield take('@@router/LOCATION_CHANGE')
@@ -253,114 +229,110 @@ export default ({ api, coreSagas, networks }) => {
     if (deepLink) yield call(defineDeepLinkGoals, deepLink, search)
   }
 
-  const runAirdropClaimGoal = function * (goal: GoalType) {
+  const runAirdropClaimGoal = function* (goal: GoalType) {
     const { id } = goal
     yield put(actions.goals.deleteGoal(id))
-    const showAirdropClaimModal = yield select(
-      selectors.preferences.getShowAirdropClaimModal
-    )
+    const showAirdropClaimModal = yield select(selectors.preferences.getShowAirdropClaimModal)
     if (!showAirdropClaimModal) return
 
     yield call(waitForUserData)
-    const { current } = (yield select(
-      selectors.modules.profile.getUserTiers
-    )).getOrElse({ current: 0 }) || { current: 0 }
-    const blockstackTag = (yield select(
-      selectors.modules.profile.getBlockstackTag
-    )).getOrElse(false)
+    const { current } = (yield select(selectors.modules.profile.getUserTiers)).getOrElse({
+      current: 0
+    }) || { current: 0 }
+    const blockstackTag = (yield select(selectors.modules.profile.getBlockstackTag)).getOrElse(
+      false
+    )
     if (current === TIERS[2] && !blockstackTag) {
       yield put(
-        actions.goals.addInitialModal('airdropClaim', 'AIRDROP_CLAIM_MODAL', {
-          origin
+        actions.goals.addInitialModal({
+          data: {
+            origin
+          },
+          key: 'airdropClaim',
+          name: 'AIRDROP_CLAIM_MODAL'
         })
       )
     }
   }
 
-  const runKycGoal = function * (goal: GoalType) {
+  const runKycGoal = function* (goal: GoalType) {
     try {
       const { data, id } = goal
       const { tier = TIERS[2] } = data
       yield put(actions.goals.deleteGoal(id))
       yield call(waitForUserData)
-      const { current } = (yield select(
-        selectors.modules.profile.getUserTiers
-      )).getOrElse({ current: 0 }) || { current: 0 }
+      const { current } = (yield select(selectors.modules.profile.getUserTiers)).getOrElse({
+        current: 0
+      }) || { current: 0 }
       if (current >= Number(tier)) return
       yield put(
-        actions.components.identityVerification.verifyIdentity(tier, false)
+        actions.components.identityVerification.verifyIdentity({
+          needMoreInfo: false,
+          origin,
+          tier
+        })
       )
     } catch (err) {
-      yield put(
-        actions.logs.logErrorMessage(logLocation, 'runKycGoal', err.message)
-      )
+      yield put(actions.logs.logErrorMessage(logLocation, 'runKycGoal', err.message))
     }
   }
 
-  const runSimpleBuyGoal = function * (goal: GoalType) {
+  const runBuySellGoal = function* (goal: GoalType) {
     const {
       data: { amount, crypto, fiatCurrency, id }
     } = goal
     yield put(actions.goals.deleteGoal(id))
 
     yield put(
-      actions.goals.addInitialModal('simpleBuyModal', 'SIMPLE_BUY_MODAL', {
-        amount,
-        crypto,
-        fiatCurrency,
-        origin
+      actions.goals.addInitialModal({
+        data: {
+          amount,
+          crypto,
+          fiatCurrency,
+          origin
+        },
+        key: 'buySellModal',
+        name: 'SIMPLE_BUY_MODAL'
       })
     )
   }
 
-  const runLinkAccountGoal = function * (goal: GoalType) {
+  const runLinkAccountGoal = function* (goal: GoalType) {
     const { data, id } = goal
     yield put(actions.goals.deleteGoal(id))
     yield put(
-      actions.goals.addInitialModal(
-        'linkAccount',
-        'LINK_FROM_EXCHANGE_ACCOUNT_MODAL',
-        data
-      )
+      actions.goals.addInitialModal({
+        data,
+        key: 'linkAccount',
+        name: 'LINK_FROM_EXCHANGE_ACCOUNT_MODAL'
+      })
     )
   }
 
-  const runReferralGoal = function * (goal) {
+  const runReferralGoal = function* (goal) {
     const { id } = goal
     yield put(actions.goals.deleteGoal(id))
     // use this for future airdrop referrals
   }
 
-  const runPaymentProtocolGoal = function * (goal) {
+  const runPaymentProtocolGoal = function* (goal) {
     const { data, id } = goal
     const { coin, r } = data
-    let coinRate, paymentCryptoAmount, paymentFiatAmount
+    const coinRate = selectors.core.data.coins.getRates(coin, yield select())
 
     yield put(actions.goals.deleteGoal(id))
-    yield put(
-      actions.analytics.logEvent([
-        ...TRANSACTION_EVENTS.BITPAY_URL_DEEPLINK,
-        coin
-      ])
-    )
 
     if (equals('BTC', coin)) {
       yield call(getBtcBalance)
-      coinRate = yield select(selectors.core.data.btc.getRates)
     } else {
       yield call(getBchBalance)
-      coinRate = yield select(selectors.core.data.bch.getRates)
     }
 
     const invoiceId = r.split('/i/')[1]
     const currency = yield select(selectors.core.settings.getCurrency)
 
     try {
-      const rawPaymentRequest = yield call(
-        api.getRawPaymentRequest,
-        invoiceId,
-        coin
-      )
+      const rawPaymentRequest = yield call(api.getRawPaymentRequest, invoiceId, coin)
       const paymentRequest = yield call(parsePaymentRequest, rawPaymentRequest)
       const { instructions } = paymentRequest
 
@@ -376,86 +348,67 @@ export default ({ api, coreSagas, networks }) => {
       // @ts-ignore
       const satoshiAmount = tx.amount
       // @ts-ignore
-      const address = tx.address
+      const { address } = tx
       const merchant = paymentRequest.memo.split('for merchant ')[1]
       const payPro = {
         expiration: paymentRequest.expires,
-        paymentUrl: r,
-        merchant
+        merchant,
+        paymentUrl: r
       }
+      const paymentCryptoAmount = Exchange.convertCoinToCoin({
+        coin,
+        value: satoshiAmount
+      })
+      const paymentFiatAmount = Exchange.convertCoinToFiat({
+        coin,
+        currency: currency.getOrElse(null),
+        isStandard: true,
+        rates: coinRate.getOrElse({} as RatesType),
+        value: paymentCryptoAmount
+      })
 
       if (equals('BTC', coin)) {
-        paymentCryptoAmount = Exchange.convertBtcToBtc({
-          value: satoshiAmount,
-          fromUnit: 'SAT',
-          toUnit: 'BTC'
-        }).value
-        paymentFiatAmount = Exchange.convertBtcToFiat({
-          value: paymentCryptoAmount,
-          fromUnit: 'BTC',
-          toCurrency: currency.getOrElse(null),
-          rates: coinRate.getOrElse(null)
-        }).value
         yield put(
-          actions.goals.addInitialModal(
-            'payment',
-            model.components.sendBtc.MODAL,
-            {
-              to: address,
+          actions.goals.addInitialModal({
+            data: {
               amount: {
                 coin: paymentCryptoAmount,
                 fiat: paymentFiatAmount
               },
               description: merchant,
+              origin,
               payPro,
-              origin
-            }
-          )
+              to: address
+            },
+            key: 'payment',
+            name: model.components.sendBtc.MODAL
+          })
         )
       } else {
-        paymentCryptoAmount = Exchange.convertBchToBch({
-          value: satoshiAmount,
-          fromUnit: 'SAT',
-          toUnit: 'BCH'
-        }).value
-        paymentFiatAmount = Exchange.convertBchToFiat({
-          value: paymentCryptoAmount,
-          fromUnit: 'BCH',
-          toCurrency: currency.getOrElse(null),
-          rates: coinRate.getOrElse(null)
-        }).value
         yield put(
-          actions.goals.addInitialModal(
-            'payment',
-            model.components.sendBch.MODAL,
-            {
-              to: address,
+          actions.goals.addInitialModal({
+            data: {
               amount: {
                 coin: paymentCryptoAmount,
                 fiat: paymentFiatAmount
               },
               description: merchant,
+              origin,
               payPro,
-              origin
-            }
-          )
+              to: address
+            },
+            key: 'payment',
+            name: model.components.sendBch.MODAL
+          })
         )
       }
     } catch (e) {
       yield put(actions.alerts.displayInfo(C.BITPAY_INVOICE_NOT_FOUND_ERROR))
-      yield put(
-        actions.analytics.logEvent([
-          ...TRANSACTION_EVENTS.BITPAY_FAILURE,
-          'invoice not found'
-        ])
-      )
-      yield put(
-        actions.logs.logErrorMessage(logLocation, 'runPaymentProtocolGoal', e)
-      )
+      yield put(actions.logs.logErrorMessage(logLocation, 'runPaymentProtocolGoal', e))
     }
   }
 
-  const runSendBtcGoal = function * (goal: GoalType) {
+  const runSendBtcGoal = function* (goal: GoalType) {
     const { data, id } = goal
     yield put(actions.goals.deleteGoal(id))
 
@@ -463,55 +416,30 @@ export default ({ api, coreSagas, networks }) => {
 
     const { address, amount, description } = data
     const currency = yield select(selectors.core.settings.getCurrency)
-    const btcRates = yield select(selectors.core.data.btc.getRates)
-    const fiat = Exchange.convertBtcToFiat({
-      value: amount,
-      fromUnit: 'BTC',
-      toCurrency: currency.getOrElse(null),
-      rates: btcRates.getOrElse(null)
-    }).value
+    const btcRates = selectors.core.data.coins.getRates('BTC', yield select())
+    const fiat = Exchange.convertCoinToFiat({
+      coin: 'BTC',
+      currency: currency.getOrElse('USD'),
+      isStandard: true,
+      rates: btcRates.getOrElse({} as RatesType),
+      value: amount
+    })
     // Goal work
     yield put(
-      actions.goals.addInitialModal('payment', model.components.sendBtc.MODAL, {
-        to: address,
-        description,
-        amount: { coin: amount, fiat },
-        origin
+      actions.goals.addInitialModal({
+        data: {
+          amount: { coin: amount, fiat },
+          description,
+          origin,
+          to: address
+        },
+        key: 'payment',
+        name: model.components.sendBtc.MODAL
       })
     )
   }
 
-  const runSendXlmGoal = function * (goal: GoalType) {
-    const { data, id } = goal
-    yield put(actions.goals.deleteGoal(id))
-
-    yield call(getXlmBalance)
-
-    const { address, amount, memo } = data
-    const currency = yield select(selectors.core.settings.getCurrency)
-    const xlmRates = yield select(selectors.core.data.xlm.getRates)
-    const fiat = Exchange.convertXlmToFiat({
-      value: amount,
-      fromUnit: 'XLM',
-      toCurrency: currency.getOrElse(null),
-      rates: xlmRates.getOrElse(null)
-    }).value
-    // Goal work
-    yield put(
-      actions.goals.addInitialModal(
-        'xlmPayment',
-        model.components.sendXlm.MODAL,
-        {
-          to: address,
-          amount: { coin: amount, fiat },
-          memo,
-          origin
-        }
-      )
-    )
-  }
-
-  const runUpgradeForAirdropGoal = function * (goal: GoalType) {
+  const runUpgradeForAirdropGoal = function* (goal: GoalType) {
     const { id } = goal
     yield put(actions.goals.deleteGoal(id))
     const showUpgradeForAirdropModal = yield select(
@@ -520,54 +448,54 @@ export default ({ api, coreSagas, networks }) => {
     if (!showUpgradeForAirdropModal) return
     yield call(waitForUserData)
     const kycNotFinished = yield call(isKycNotFinished)
-    const isRegistered = (yield select(
-      selectors.modules.profile.getBlockstackTag
-    )).getOrElse(false)
+    const isRegistered = (yield select(selectors.modules.profile.getBlockstackTag)).getOrElse(false)
 
     if (kycNotFinished && !isRegistered) {
       return yield put(
-        actions.goals.addInitialModal(
-          'upgradeForAirdrop',
-          'UPGRADE_FOR_AIRDROP_MODAL',
-          {
+        actions.goals.addInitialModal({
+          data: {
             campaign: 'BLOCKSTACK',
             origin
-          }
-        )
+          },
+          key: 'upgradeForAirdrop',
+          name: 'UPGRADE_FOR_AIRDROP_MODAL'
+        })
       )
     }
   }
 
-  const runSwapModal = function * (goal: GoalType) {
+  const runSwapModal = function* (goal: GoalType) {
     const { id } = goal
     yield put(actions.goals.deleteGoal(id))
 
-    yield put(actions.goals.addInitialModal('swap', 'SWAP_MODAL', { origin }))
+    yield put(actions.goals.addInitialModal({ data: { origin }, key: 'swap', name: 'SWAP_MODAL' }))
   }
 
-  const runSwapUpgradeGoal = function * (goal: GoalType) {
+  const runSwapUpgradeGoal = function* (goal: GoalType) {
     const { id } = goal
     yield put(actions.goals.deleteGoal(id))
 
-    const showSwapUpgrade = yield select(
-      selectors.preferences.getShowSwapUpgrade
-    )
+    const showSwapUpgrade = yield select(selectors.preferences.getShowSwapUpgrade)
     if (!showSwapUpgrade) return
     yield call(waitForUserData)
-    const closeToTier1Limit = (yield select(
-      selectors.modules.profile.closeToTier1Limit
-    )).getOrElse(false)
+    const closeToTier1Limit = (yield select(selectors.modules.profile.closeToTier1Limit)).getOrElse(
+      false
+    )
     if (closeToTier1Limit)
       return yield put(
-        actions.goals.addInitialModal('swapUpgrade', 'KYC_TIER_UPGRADE_MODAL', {
-          nextTier: TIERS[2],
-          currentTier: TIERS[1],
-          origin
+        actions.goals.addInitialModal({
+          data: {
+            currentTier: TIERS[1],
+            nextTier: TIERS[2],
+            origin
+          },
+          key: 'swapUpgrade',
+          name: 'KYC_TIER_UPGRADE_MODAL'
         })
       )
   }
 
-  const runKycDocResubmitGoal = function * (goal: GoalType) {
+  const runKycDocResubmitGoal = function* (goal: GoalType) {
     const { id } = goal
     yield put(actions.goals.deleteGoal(id))
     yield call(waitForUserData)
@@ -577,42 +505,49 @@ export default ({ api, coreSagas, networks }) => {
     ))
       .map(anyPass([equals(GENERAL), equals(EXPIRED)]))
       .getOrElse(false)
-
-    if (showKycDocResubmitModal) {
+    // check if user is under review. resubmission status sometimes only
+    // is removed from user profile after they are verified
+    const kycState = (yield select(selectors.modules.profile.getUserKYCState)).getOrElse('NONE')
+    const isKycPending = kycState === KYC_STATES.UNDER_REVIEW || kycState === KYC_STATES.PENDING
+    if (showKycDocResubmitModal && !isKycPending) {
       yield put(
-        actions.goals.addInitialModal('kycDocResubmit', 'KYC_RESUBMIT_MODAL', {
-          origin
+        actions.goals.addInitialModal({
+          data: {
+            origin
+          },
+          key: 'kycDocResubmit',
+          name: 'KYC_RESUBMIT_MODAL'
         })
       )
     }
   }
 
-  const runSwapGetStartedGoal = function * (goal: GoalType) {
-    const { id } = goal
-    yield put(actions.goals.deleteGoal(id))
-
-    // check if user has already seen kyc modal
-    const showKycGetStarted = yield select(
-      selectors.preferences.getShowKycGetStarted
-    )
-    if (!showKycGetStarted) return
-    // check/wait for balances to be available
-    const balances = yield call(waitForAllBalances)
-    const isFunded = sum(values(balances)) !== 0
-    if (!isFunded) return
-    yield call(waitForUserData)
-    const kycNotFinished = yield call(isKycNotFinished)
-    if (kycNotFinished)
-      yield put(
-        actions.goals.addInitialModal(
-          'swapGetStarted',
-          'SWAP_GET_STARTED_MODAL',
-          { origin }
+  const runWalletConnectGoal = function* (goal: GoalType) {
+    try {
+      const { data: uri, id } = goal
+      const walletConnectEnabled = (yield select(
+        selectors.core.walletOptions.getWalletConnectEnabled
+      )).getOrElse(false)
+      yield put(actions.goals.deleteGoal(id))
+      if (walletConnectEnabled) {
+        yield put(
+          actions.goals.addInitialModal({
+            data: {
+              origin,
+              uri
+            },
+            key: 'walletConnect',
+            name: ModalName.WALLET_CONNECT_MODAL
+          })
         )
-      )
+      }
+    } catch (e) {
+      const error = errorHandler(e)
+      yield put(actions.logs.logErrorMessage('goals', 'runWalletConnectGoal', error))
+    }
   }
 
-  const runSyncPitGoal = function * (goal: GoalType) {
+  const runSyncPitGoal = function* (goal: GoalType) {
     const { id } = goal
     yield put(actions.goals.deleteGoal(id))
 
@@ -626,155 +561,142 @@ export default ({ api, coreSagas, networks }) => {
       }
     } catch (e) {
       const error = errorHandler(e)
-      yield put(
-        actions.logs.logErrorMessage('goals', 'runSyncToPitGoal', error)
-      )
+      yield put(actions.logs.logErrorMessage('goals', 'runSyncToPitGoal', error))
     }
   }
 
-  const runWelcomeModal = function * (goal: GoalType) {
+  const runWelcomeModal = function* (goal: GoalType) {
     const { data, id } = goal
     const { firstLogin } = data
     yield put(actions.goals.deleteGoal(id))
-
-    if (firstLogin) {
+    // Check if new wallet is from regular new registration
+    // or nabu account reset
+    const isAccountReset: boolean = yield select(selectors.auth.getAccountReset)
+    if (firstLogin && !isAccountReset) {
       yield put(
-        actions.goals.addInitialModal('welcomeModal', 'WELCOME_MODAL', {
-          origin
+        actions.goals.addInitialModal({
+          data: {
+            origin
+          },
+          key: 'welcomeModal',
+          name: ModalName.WELCOME_MODAL
         })
       )
     }
   }
 
-  const runTransferEthGoal = function * (goal: GoalType) {
+  const runTransferEthGoal = function* (goal: GoalType) {
     const { id } = goal
     yield put(actions.goals.deleteGoal(id))
-    const legacyAccountR = yield select(
-      selectors.core.kvStore.eth.getLegacyAccount
-    )
+    const legacyAccountR = yield select(selectors.core.kvStore.eth.getLegacyAccount)
     const legacyAccount = legacyAccountR.getOrElse(null)
     if (!legacyAccount) return
 
     const { addr: legacyEthAddr, correct } = legacyAccount
     const fees = yield call(api.getEthFees)
-    const feeAmount = yield call(
-      utils.eth.calculateFee,
-      fees.regular,
-      fees.gasLimit,
-      true
-    )
+    const feeAmount = yield call(utils.eth.calculateFee, fees.regular, fees.gasLimit, true)
     // if not swept, get the legacy eth account balance and prompt sweep
     if (!correct && legacyEthAddr) {
       const ethBalances = yield call(api.getEthBalances, legacyEthAddr)
-      const legacyEthBalance =
-        path<string>([legacyEthAddr, 'balance'], ethBalances) || 0
+      const legacyEthBalance = path<string>([legacyEthAddr, 'balance'], ethBalances) || 0
       const legacyEthBalanceBigInt = new BigNumber(legacyEthBalance)
       const feeAmountBigInt = new BigNumber(feeAmount)
       if (legacyEthBalanceBigInt.isGreaterThan(feeAmountBigInt)) {
         yield put(
-          actions.goals.addInitialModal('transferEth', 'TRANSFER_ETH_MODAL', {
-            legacyEthBalance,
-            legacyEthAddr,
-            origin
+          actions.goals.addInitialModal({
+            data: {
+              legacyEthAddr,
+              legacyEthBalance,
+              origin
+            },
+            key: 'transferEth',
+            name: 'TRANSFER_ETH_MODAL'
           })
         )
       }
     }
   }
 
-  const runInterestRedirect = function * (goal: GoalType) {
+  const runInterestRedirect = function* (goal: GoalType) {
     const { id } = goal
     yield put(actions.goals.deleteGoal(id))
 
     yield put(actions.goals.addInitialRedirect('interest'))
   }
-  const runInterestPromo = function * (goal: GoalType) {
-    // do not show imediately modal, wait 5 seconds
+  const runInterestPromo = function* (goal: GoalType) {
+    // do not show modal immediately, wait 5 seconds
     yield delay(WAIT_FOR_INTEREST_PROMO_MODAL)
     yield call(waitForUserData)
     const { id } = goal
     yield put(actions.goals.deleteGoal(id))
-    const { current } = (yield select(
-      selectors.modules.profile.getUserTiers
-    )).getOrElse({ current: 0 }) || { current: 0 }
+    const { current } = (yield select(selectors.modules.profile.getUserTiers)).getOrElse({
+      current: 0
+    }) || { current: 0 }
 
     // we show this only for tier 2 users
     if (current === TIERS[2]) {
-      const currency = (yield select(
-        selectors.core.settings.getCurrency
-      )).getOrElse('USD')
-      yield put(
-        actions.components.interest.fetchShowInterestCardAfterTransaction(
-          currency as WalletFiatType
-        )
-      )
+      const currency = (yield select(selectors.core.settings.getCurrency)).getOrElse(
+        'USD'
+      ) as WalletFiatType
+      yield put(actions.components.interest.fetchShowInterestCardAfterTransaction({ currency }))
       // make sure that fetch is done
       yield take([
-        actionTypes.components.interest
-          .FETCH_SHOW_INTEREST_CARD_AFTER_TRANSACTION_SUCCESS,
-        actionTypes.components.interest
-          .FETCH_SHOW_INTEREST_CARD_AFTER_TRANSACTION_FAILURE
+        actions.components.interest.fetchShowInterestCardAfterTransactionSuccess.type,
+        actions.components.interest.fetchShowInterestCardAfterTransactionFailure.type
       ])
-      const afterTransactionR = yield select(
-        selectors.components.interest.getAfterTransaction
-      )
+      const afterTransactionR = yield select(selectors.components.interest.getAfterTransaction)
       const afterTransaction = afterTransactionR.getOrElse({
         show: false
       } as InterestAfterTransactionType)
       if (afterTransaction?.show) {
         yield put(
-          actions.components.simpleBuy.fetchSBPairs(
-            currency,
-            afterTransaction.currency
-          )
+          actions.components.buySell.fetchPairs({ coin: afterTransaction.currency, currency })
         )
         yield put(
-          actions.goals.addInitialModal(
-            'interestPromo',
-            'INTEREST_PROMO_MODAL',
-            { origin }
-          )
+          actions.goals.addInitialModal({
+            data: { origin },
+            key: 'interestPromo',
+            name: 'INTEREST_PROMO_MODAL'
+          })
         )
       }
     }
   }
 
-  const runInitialRedirect = function * () {
+  const runInitialRedirect = function* () {
     const initialRedirect = yield select(selectors.goals.getInitialRedirect)
 
     if (initialRedirect === 'interest') {
-      return yield put(actions.router.push(`/${initialRedirect}`))
+      return yield put(actions.router.push(`/rewards`))
     }
   }
 
-  const showInitialModal = function * () {
+  const showInitialModal = function* () {
     const initialModals = yield select(selectors.goals.getInitialModals)
     const {
       airdropClaim,
+      buySellModal,
+      entitiesMigration,
       interestPromo,
       kycDocResubmit,
       linkAccount,
       payment,
-      simpleBuyModal,
       swap,
       swapGetStarted,
       swapUpgrade,
+      termsAndConditions,
       transferEth,
       upgradeForAirdrop,
-      welcomeModal,
-      xlmPayment
+      walletConnect,
+      welcomeModal
     } = initialModals
 
     // Order matters here
     if (linkAccount) {
-      return yield put(
-        actions.modals.showModal(linkAccount.name, linkAccount.data)
-      )
+      return yield put(actions.modals.showModal(linkAccount.name, linkAccount.data))
     }
     if (transferEth) {
-      return yield put(
-        actions.modals.showModal(transferEth.name, transferEth.data)
-      )
+      return yield put(actions.modals.showModal(transferEth.name, transferEth.data))
     }
     if (kycDocResubmit) {
       return yield put(
@@ -783,31 +705,29 @@ export default ({ api, coreSagas, networks }) => {
         })
       )
     }
+    if (walletConnect) {
+      return yield put(actions.modals.showModal(ModalName.WALLET_CONNECT_MODAL, walletConnect.data))
+    }
     if (payment) {
       return yield put(actions.modals.showModal(payment.name, payment.data))
     }
-    if (xlmPayment) {
-      return yield put(
-        actions.modals.showModal(xlmPayment.name, xlmPayment.data)
-      )
-    }
     if (upgradeForAirdrop) {
-      return yield put(
-        actions.modals.showModal(upgradeForAirdrop.name, upgradeForAirdrop.data)
-      )
+      return yield put(actions.modals.showModal(upgradeForAirdrop.name, upgradeForAirdrop.data))
     }
     if (swap) {
       return yield put(actions.modals.showModal(swap.name, swap.data))
     }
     if (swapGetStarted) {
-      return yield put(
-        actions.modals.showModal(swapGetStarted.name, swapGetStarted.data)
-      )
+      return yield put(actions.modals.showModal(swapGetStarted.name, swapGetStarted.data))
     }
     if (swapUpgrade) {
-      return yield put(
-        actions.modals.showModal(swapUpgrade.name, swapUpgrade.data)
-      )
+      return yield put(actions.modals.showModal(swapUpgrade.name, swapUpgrade.data))
+    }
+    if (entitiesMigration) {
+      return yield put(actions.modals.showModal(entitiesMigration.name, entitiesMigration.data))
+    }
+    if (termsAndConditions) {
+      return yield put(actions.modals.showModal(termsAndConditions.name, termsAndConditions.data))
     }
     if (airdropClaim) {
       return yield put(
@@ -816,32 +736,103 @@ export default ({ api, coreSagas, networks }) => {
         })
       )
     }
-    if (simpleBuyModal) {
+    if (buySellModal) {
       return yield put(
-        actions.components.simpleBuy.showModal(
-          'SimpleBuyLink',
-          simpleBuyModal.data.crypto
-        )
+        actions.components.buySell.showModal({
+          cryptoCurrency: buySellModal.data.crypto,
+          origin: 'BuySellLink'
+        })
       )
     }
     if (interestPromo) {
-      return yield put(
-        actions.modals.showModal(interestPromo.name, interestPromo.data)
-      )
+      return yield put(actions.modals.showModal(interestPromo.name, interestPromo.data))
     }
     if (welcomeModal) {
       const sddEligible = yield call(api.fetchSDDEligible)
+      const showCompleteYourProfile = selectors.core.walletOptions
+        .getCompleteYourProfile(yield select())
+        .getOrElse(null)
       // show SDD flow for eligible country
       if (sddEligible.eligible) {
-        return yield put(actions.components.simpleBuy.showModal('WelcomeModal'))
+        // show new complete profile modal
+        if (showCompleteYourProfile) {
+          return yield put(
+            actions.modals.showModal(ModalName.COMPLETE_USER_PROFILE, welcomeModal.data)
+          )
+        }
+
+        return yield put(actions.components.buySell.showModal({ origin: 'WelcomeModal' }))
       }
-      return yield put(
-        actions.modals.showModal(welcomeModal.name, welcomeModal.data)
+      return yield put(actions.modals.showModal(welcomeModal.name, welcomeModal.data))
+    }
+  }
+
+  const runEntitiesMigrationGoal = function* (goal: GoalType) {
+    yield delay(WAIT_FOR_INTEREST_PROMO_MODAL)
+    yield call(fetchUser)
+    yield call(waitForUserData)
+    const { id } = goal
+    yield put(actions.goals.deleteGoal(id))
+
+    const userData = (yield select(selectors.modules.profile.getUserData)).getOrElse({
+      address: undefined,
+      id: '',
+      kycState: 'NONE',
+      mobile: '',
+      mobileVerified: false,
+      state: 'NONE',
+      tiers: { current: 0 }
+    } as UserDataType)
+    const announcementState = selectors.cache.getLastAnnouncementState(yield select())
+    const showModal =
+      !announcementState ||
+      !announcementState['entities-migration'] ||
+      (announcementState['entities-migration'] &&
+        !announcementState['entities-migration'].dismissed)
+    if (userData?.address?.country === 'GB' && showModal) {
+      yield put(
+        actions.goals.addInitialModal({
+          data: { origin },
+          key: 'entitiesMigration',
+          name: ModalName.ENTITIES_MIGRATION_MODAL
+        })
+      )
+    }
+  }
+  const runTermsAndConditionsGoal = function* (goal: GoalType) {
+    yield delay(WAIT_FOR_INTEREST_PROMO_MODAL)
+    yield call(fetchUser)
+    yield call(waitForUserData)
+    const { id } = goal
+    yield put(actions.goals.deleteGoal(id))
+
+    const showCompleteYourProfile = selectors.core.walletOptions
+      .getShowTermsAndConditions(yield select())
+      .getOrElse(null)
+
+    yield put(actions.components.termsAndConditions.fetchTermsAndConditions())
+    // make sure that fetch is done
+    yield take([
+      actions.components.termsAndConditions.fetchTermsAndConditionsSuccess.type,
+      actions.components.termsAndConditions.fetchTermsAndConditionsFailure.type
+    ])
+
+    const termsAndConditionsChanged = selectors.components.termsAndConditions
+      .getTermsAndConditions(yield select())
+      .getOrElse({} as TermsAndConditionType)
+
+    if (showCompleteYourProfile && termsAndConditionsChanged?.termsAndConditions) {
+      yield put(
+        actions.goals.addInitialModal({
+          data: { origin },
+          key: 'termsAndConditions',
+          name: ModalName.TERMS_AND_CONDITIONS
+        })
       )
     }
   }
 
-  const runGoal = function * (goal: GoalType) {
+  const runGoal = function* (goal: GoalType) {
     try {
       // Ordering doesn't matter here
       // Try to keep in alphabetical ⬆️
@@ -867,14 +858,11 @@ export default ({ api, coreSagas, networks }) => {
         case 'referral':
           yield call(runReferralGoal, goal)
           break
-        case 'simpleBuy':
-          yield call(runSimpleBuyGoal, goal)
+        case 'buySell':
+          yield call(runBuySellGoal, goal)
           break
         case 'swap':
           yield call(runSwapModal, goal)
-          break
-        case 'swapGetStarted':
-          yield call(runSwapGetStartedGoal, goal)
           break
         case 'swapUpgrade':
           yield call(runSwapUpgradeGoal, goal)
@@ -888,8 +876,8 @@ export default ({ api, coreSagas, networks }) => {
         case 'upgradeForAirdrop':
           yield call(runUpgradeForAirdropGoal, goal)
           break
-        case 'xlmPayment':
-          yield call(runSendXlmGoal, goal)
+        case 'walletConnect':
+          yield call(runWalletConnectGoal, goal)
           break
         case 'welcomeModal':
           yield call(runWelcomeModal, goal)
@@ -900,6 +888,14 @@ export default ({ api, coreSagas, networks }) => {
         case 'interestPromo':
           yield call(runInterestPromo, goal)
           break
+        case 'entitiesMigration':
+          yield call(runEntitiesMigrationGoal, goal)
+          break
+        case 'termsAndConditions':
+          yield call(runTermsAndConditionsGoal, goal)
+          break
+        default:
+          break
       }
       yield put(actions.goals.initialModalDisplayed)
     } catch (error) {
@@ -907,17 +903,36 @@ export default ({ api, coreSagas, networks }) => {
     }
   }
 
-  const runGoals = function * () {
+  const runGoals = function* () {
     const goals = yield select(selectors.goals.getGoals)
-    const goalTasks = yield all(map(goal => spawn(runGoal, goal), goals))
+    const goalTasks = yield all(map((goal) => spawn(runGoal, goal), goals))
     yield all(map(join, goalTasks))
     yield call(runInitialRedirect)
     yield call(showInitialModal)
   }
 
+  const saveGoals = function* (firstLogin) {
+    // only for non first login users we save goal here for first login users we do that over verify email page
+    if (!firstLogin) {
+      yield put(actions.goals.saveGoal({ data: {}, name: 'welcomeModal' }))
+    }
+    yield put(actions.goals.saveGoal({ data: {}, name: 'swapUpgrade' }))
+    yield put(actions.goals.saveGoal({ data: {}, name: 'swapGetStarted' }))
+    yield put(actions.goals.saveGoal({ data: {}, name: 'kycDocResubmit' }))
+    yield put(actions.goals.saveGoal({ data: {}, name: 'transferEth' }))
+    yield put(actions.goals.saveGoal({ data: {}, name: 'syncPit' }))
+    yield put(actions.goals.saveGoal({ data: {}, name: 'interestPromo' }))
+    yield put(actions.goals.saveGoal({ data: {}, name: 'entitiesMigration' }))
+    yield put(actions.goals.saveGoal({ data: {}, name: 'termsAndConditions' }))
+    // when airdrops are running
+    // yield put(actions.goals.saveGoal('upgradeForAirdrop'))
+    // yield put(actions.goals.saveGoal('airdropClaim'))
+  }
+
   return {
     defineGoals,
     runGoal,
-    runGoals
+    runGoals,
+    saveGoals
   }
 }

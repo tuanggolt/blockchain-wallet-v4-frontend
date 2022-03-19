@@ -1,20 +1,20 @@
 export default {
-  code: 'CAD',
   base: 'CENT',
+  code: 'CAD',
   displayName: 'Canadian Dollar',
   trade: 'CAD',
   units: {
-    CENT: {
-      rate: '1',
-      symbol: '¢C$',
-      decimal_digits: 0,
-      currency: 'CAD'
-    },
     CAD: {
-      rate: '100',
-      symbol: 'C$',
+      currency: 'CAD',
       decimal_digits: 2,
-      currency: 'CAD'
+      rate: '100',
+      symbol: 'C$'
+    },
+    CENT: {
+      currency: 'CAD',
+      decimal_digits: 0,
+      rate: '1',
+      symbol: '¢C$'
     }
   }
 }

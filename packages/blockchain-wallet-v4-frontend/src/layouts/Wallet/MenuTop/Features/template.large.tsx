@@ -2,6 +2,7 @@ import React from 'react'
 import { FormattedMessage } from 'react-intl'
 import { LinkContainer } from 'react-router-bootstrap'
 
+import { Image } from 'blockchain-info-components'
 import {
   NavbarDivider,
   NavbarNavItem,
@@ -12,9 +13,7 @@ import {
 
 import { Props } from '.'
 
-const FeaturesLarge = (
-  props: Props & { showModal: (modal: 'SEND' | 'REQUEST') => void }
-) => {
+const FeaturesLarge = (props: Props & { showModal: (modal: 'SEND' | 'REQUEST') => void }) => {
   return (
     <>
       <NavbarNavItem>
@@ -46,7 +45,7 @@ const FeaturesLarge = (
       <NavbarNavItem>
         <NavbarNavItemButton
           data-e2e='exchangeLink'
-          onClick={() => props.swapActions.showModal('FeaturesTopNav')}
+          onClick={() => props.swapActions.showModal({ origin: 'FeaturesTopNav' })}
         >
           <NavbarNavItemIcon size='18px' name='arrow-switch-thick' />
           <NavbarNavItemTextHeader size='14px' weight={600}>
@@ -58,45 +57,61 @@ const FeaturesLarge = (
       <NavbarNavItem>
         <NavbarNavItemButton
           data-e2e='buyAndSellLink'
-          onClick={() => props.simpleBuyActions.showModal('SideNav')}
+          onClick={() => props.buySellActions.showModal({ origin: 'SideNav' })}
         >
           <NavbarNavItemIcon size='18px' name='cart-filled' />
           <NavbarNavItemTextHeader size='14px' weight={600}>
-            <FormattedMessage
-              id='buttons.buy_sell_crypto'
-              defaultMessage='Buy/Sell Crypto'
-            />
+            <FormattedMessage id='buttons.buy_sell_crypto' defaultMessage='Buy/Sell Crypto' />
           </NavbarNavItemTextHeader>
         </NavbarNavItemButton>
       </NavbarNavItem>
       <NavbarDivider />
-      <LinkContainer to='/interest' activeClassName='active'>
+      <LinkContainer to='/rewards' activeClassName='active'>
         <NavbarNavItem>
           <NavbarNavItemButton data-e2e='interestLink'>
             <NavbarNavItemIcon size='18px' name='percentage' />
             <NavbarNavItemTextHeader size='14px' weight={600}>
               <FormattedMessage
                 id='layouts.wallet.menuleft.navigation.earninterest'
-                defaultMessage='Earn Interest'
+                defaultMessage='Earn Rewards'
               />
             </NavbarNavItemTextHeader>
           </NavbarNavItemButton>
         </NavbarNavItem>
       </LinkContainer>
       <NavbarDivider />
-      <LinkContainer to='/borrow' activeClassName='active'>
-        <NavbarNavItem>
-          <NavbarNavItemButton data-e2e='borrowLink'>
-            <NavbarNavItemIcon size='18px' name='borrow' />
-            <NavbarNavItemTextHeader size='14px' weight={600}>
-              <FormattedMessage
-                id='layouts.wallet.menuleft.navigation.borrow'
-                defaultMessage='Borrow'
-              />
-            </NavbarNavItemTextHeader>
-          </NavbarNavItemButton>
-        </NavbarNavItem>
-      </LinkContainer>
+      {props.invitations.nfts ? (
+        <LinkContainer to='/nfts' activeClassName='active'>
+          <NavbarNavItem>
+            <NavbarNavItemButton data-e2e='nftsLink'>
+              <Image name='nft' height='50%' style={{ marginRight: '8px' }} />
+              <NavbarNavItemTextHeader size='14px' weight={600}>
+                <FormattedMessage
+                  id='layouts.wallet.menuleft.navigation.nfts'
+                  defaultMessage='NFTs'
+                />
+                &nbsp;(Beta)
+              </NavbarNavItemTextHeader>
+            </NavbarNavItemButton>
+          </NavbarNavItem>
+        </LinkContainer>
+      ) : null}
+      <NavbarDivider />
+      {props.walletConnectEnabled ? (
+        <LinkContainer to='/dapps' activeClassName='active'>
+          <NavbarNavItem>
+            <NavbarNavItemButton data-e2e='dappsLink'>
+              <Image name='walletconnect-circle-logo' height='50%' style={{ marginRight: '8px' }} />
+              <NavbarNavItemTextHeader size='14px' weight={600}>
+                <FormattedMessage
+                  id='layouts.wallet.menuleft.navigation.dapps'
+                  defaultMessage='Dapps'
+                />
+              </NavbarNavItemTextHeader>
+            </NavbarNavItemButton>
+          </NavbarNavItem>
+        </LinkContainer>
+      ) : null}
     </>
   )
 }

@@ -4,25 +4,26 @@ import { GreyBlueCartridge } from 'blockchain-wallet-v4-frontend/src/modals/Inte
 import { Field, InjectedFormProps, reduxForm } from 'redux-form'
 import styled from 'styled-components'
 
+import { Exchange, Remote } from '@core'
+import Currencies from '@core/exchange/currencies'
+import { coinToString, fiatToString, formatFiat } from '@core/exchange/utils'
 import { Button, Icon, Text } from 'blockchain-info-components'
-import { Exchange, Remote } from 'blockchain-wallet-v4/src'
-import Currencies from 'blockchain-wallet-v4/src/exchange/currencies'
-import {
-  coinToString,
-  fiatToString
-} from 'blockchain-wallet-v4/src/exchange/currency'
 import { BlueCartridge, ErrorCartridge } from 'components/Cartridge'
 import CoinDisplay from 'components/Display/CoinDisplay'
 import FiatDisplay from 'components/Display/FiatDisplay'
 import { AmountTextBox } from 'components/Exchange'
 import { FlyoutWrapper } from 'components/Flyout'
-import { SwapAccountType } from 'data/types'
+import { convertBaseToStandard } from 'data/components/exchange/services'
+import { SwapAccountType, SwapBaseCounterTypes } from 'data/types'
+import { getEffectiveLimit, getEffectivePeriod } from 'services/custodial'
 import { formatTextAmount } from 'services/forms'
 import { media } from 'services/styles'
 
+import { AlertButton } from '../../../components'
 import { StyledForm } from '../../components'
 import { Props as OwnProps, SuccessStateType } from '..'
 import {
+  checkCrossBorderLimit,
   getMaxMin,
   incomingAmountNonZero,
   maximumAmount,
@@ -33,8 +34,8 @@ export const Cell = styled.div<{ center?: boolean; size?: 'small' }>`
   display: flex;
   flex-direction: row;
   align-items: center;
-  justify-content: ${props => (props.center ? 'center' : 'flex-start')};
-  width: ${props => (props.size === 'small' ? '10%' : '45%')};
+  justify-content: ${(props) => (props.center ? 'center' : 'flex-start')};
+  width: ${(props) => (props.size === 'small' ? '10%' : '45%')};
   height: 100%;
 `
 
@@ -48,11 +49,14 @@ export const Row = styled.div`
   width: 100%;
 `
 
-const AmountRow = styled(Row)`
+const AmountRow = styled(Row)<{ isError: boolean }>`
   position: relative;
   padding: 12px;
   justify-content: center;
   border: 0px;
+  > input {
+    color: ${(props) => (props.isError ? 'red400' : 'textBlack')};
+  }
 `
 const Amounts = styled.div`
   margin-top: 64px;
@@ -93,38 +97,32 @@ const QuoteRow = styled.div`
   min-height: 32px;
 `
 const CustomErrorCartridge = styled(ErrorCartridge)`
-  border: 1px solid ${props => props.theme.red000};
+  border: 1px solid ${(props) => props.theme.red000};
   cursor: pointer;
-  color: ${props => props.theme.red400};
+  color: ${(props) => props.theme.red400};
 `
 
-const normalizeAmount = (
-  value,
-  prevValue /* allValues: SwapAmountFormValues */
-) => {
-  if (isNaN(Number(value)) && value !== '.' && value !== '') return prevValue
-  return formatTextAmount(
-    value,
-    /* allValues && allValues.fix === 'FIAT' */ false
-  )
+export const ButtonContainer = styled.div`
+  margin-top: 24px;
+`
+
+const normalizeAmount = (value, prevValue /* allValues: SwapAmountFormValues */) => {
+  if (Number.isNaN(Number(value)) && value !== '.' && value !== '') return prevValue
+  return formatTextAmount(value, /* allValues && allValues.fix === 'FIAT' */ false)
 }
 
-const Checkout: React.FC<InjectedFormProps<{}, Props> & Props> = props => {
+const Checkout: React.FC<InjectedFormProps<{}, Props> & Props> = (props) => {
   const {
     BASE,
     COUNTER,
     baseRates,
-    // @ts-ignore
-    coins,
-    // @ts-ignore
+    crossBorderLimits,
     fix,
-    formActions,
     formErrors,
     formValues,
     limits,
     payment,
     quote,
-    // @ts-ignore
     userData,
     walletCurrency
   } = props
@@ -142,36 +140,24 @@ const Checkout: React.FC<InjectedFormProps<{}, Props> & Props> = props => {
       : amountRowNode.children[amountRowNode.children.length - 1]
     currencyNode.style.fontSize = `${fontSizeNumber * fontRatio}px`
   }
-  const max = getMaxMin(
-    'max',
-    limits,
-    baseRates[walletCurrency],
-    payment,
-    quote,
-    BASE,
-    COUNTER
-  )
-  const fiatMax = Exchange.convertCoinToFiat(
-    max,
-    BASE.coin,
-    walletCurrency,
-    baseRates
-  )
-  const min = getMaxMin(
-    'min',
-    limits,
-    baseRates[walletCurrency],
-    payment,
-    quote,
-    BASE,
-    COUNTER
-  )
-  const fiatMin = Exchange.convertCoinToFiat(
-    min,
-    BASE.coin,
-    walletCurrency,
-    baseRates
-  )
+  const max = getMaxMin('max', limits, baseRates, payment, quote, BASE, COUNTER)
+
+  const fiatMax = Exchange.convertCoinToFiat({
+    coin: BASE.coin,
+    currency: walletCurrency,
+    isStandard: true,
+    rates: baseRates,
+    value: max
+  })
+  const min = getMaxMin('min', limits, baseRates, payment, quote, BASE, COUNTER)
+
+  const fiatMin = Exchange.convertCoinToFiat({
+    coin: BASE.coin,
+    currency: walletCurrency,
+    isStandard: true,
+    rates: baseRates,
+    value: min
+  })
   const balance = payment ? payment.effectiveBalance : BASE.balance
 
   const maxAmountSilver = !!(
@@ -182,70 +168,78 @@ const Checkout: React.FC<InjectedFormProps<{}, Props> & Props> = props => {
 
   const quoteAmount =
     fix === 'FIAT'
-      ? Exchange.convertFiatToCoin(
-          formValues?.amount || 0,
-          BASE.coin,
-          walletCurrency,
-          baseRates
-        )
-      : Exchange.convertCoinToFiat(
-          formValues?.amount || 0,
-          BASE.coin,
-          walletCurrency,
-          baseRates
-        )
+      ? Exchange.convertFiatToCoin({
+          coin: BASE.coin,
+          currency: walletCurrency,
+          rates: baseRates,
+          value: formValues?.amount || 0
+        })
+      : Exchange.convertCoinToFiat({
+          coin: BASE.coin,
+          currency: walletCurrency,
+          isStandard: true,
+          rates: baseRates,
+          value: formValues?.amount || 0
+        })
 
   const quoteAmountString =
     fix === 'FIAT'
       ? coinToString({
-          value: quoteAmount,
-          unit: { symbol: coins[BASE.coin].coinTicker }
+          unit: { symbol: BASE.coin },
+          value: quoteAmount
         })
-      : fiatToString({ value: quoteAmount, unit: walletCurrency })
+      : fiatToString({ unit: walletCurrency, value: quoteAmount })
 
   const handleMinMaxClick = () => {
-    const value =
-      fix === 'FIAT'
-        ? amtError === 'BELOW_MIN'
-          ? fiatMin
-          : fiatMax
-        : amtError === 'BELOW_MIN'
-        ? min
-        : max
-    formActions.change('swapAmount', 'amount', value)
+    if (amtError === 'BELOW_MIN') {
+      props.swapActions.handleSwapMinAmountClick({ amount: fix === 'FIAT' ? fiatMin : min })
+    }
+
+    if (amtError === 'ABOVE_MAX' || amtError === 'NEGATIVE_INCOMING_AMT') {
+      props.swapActions.handleSwapMinAmountClick({ amount: fix === 'FIAT' ? fiatMax : max })
+    }
   }
 
-  const handleSubmit = e => {
+  const handleSubmit = (e) => {
     e.preventDefault()
     props.swapActions.setStep({
-      step: 'PREVIEW_SWAP',
       options: {
-        baseCoin: BASE.coin,
         baseAccountType: BASE.type,
-        counterCoin: COUNTER.coin,
-        counterAccountType: COUNTER.type
-      }
+        baseCoin: BASE.coin,
+        counterAccountType: COUNTER.type,
+        counterCoin: COUNTER.coin
+      },
+      step: 'PREVIEW_SWAP'
     })
   }
 
   const balanceBelowMinimum = Number(max) < Number(min)
   const isQuoteFailed = Remote.Failure.is(props.quoteR)
+  const { coinfig: baseCoinfig } = window.coins[BASE.coin]
   // if user is attempting to send NC ERC20, ensure they have sufficient
   // ETH balance else warn user and disable trade
-  const isErc20 = coins[BASE.coin].contractAddress
+  const isErc20 = baseCoinfig.type.erc20Address
   const disableInsufficientEth =
     props.payment &&
-    BASE.type === 'ACCOUNT' &&
+    BASE.type === SwapBaseCounterTypes.ACCOUNT &&
     isErc20 &&
     // @ts-ignore
     !props.payment.isSufficientEthForErc20
 
+  const showError = !props.isPristine && amtError
+
+  const effectiveLimit = getEffectiveLimit(crossBorderLimits)
+  const effectivePeriod = getEffectivePeriod(crossBorderLimits)
+
+  const showLimitError = showError && amtError === 'ABOVE_MAX_LIMIT'
+  const showBalanceError = showError && amtError === 'ABOVE_BALANCE'
+
   return (
     <FlyoutWrapper style={{ paddingTop: '20px' }}>
       <StyledForm onSubmit={handleSubmit}>
-        <AmountRow id='amount-row'>
+        <AmountRow id='amount-row' isError={!!showError}>
           {fix === 'FIAT' && (
-            <Text size={'56px'} color='textBlack' weight={500}>
+            <Text size='56px' color={showError ? 'red400' : 'textBlack'} weight={500}>
               {Currencies[walletCurrency].units[walletCurrency].symbol}
             </Text>
           )}
@@ -253,31 +247,31 @@ const Checkout: React.FC<InjectedFormProps<{}, Props> & Props> = props => {
             data-e2e='swapAmountInput'
             name='amount'
             component={AmountTextBox}
-            validate={[maximumAmount, minimumAmount, incomingAmountNonZero]}
+            validate={[maximumAmount, minimumAmount, incomingAmountNonZero, checkCrossBorderLimit]}
             normalize={normalizeAmount}
             props={{ disabled: balanceBelowMinimum }}
+            // eslint-disable-next-line react/jsx-no-bind
             onUpdate={resizeSymbol.bind(null, fix === 'FIAT')}
             maxFontSize='56px'
             placeholder='0'
             fiatActive={false}
+            haveError={!!showError}
             {...{
               autoFocus: true,
               hideError: true
             }}
           />
           {fix === 'CRYPTO' && (
-            <Text size={'56px'} color='textBlack' weight={500}>
-              {coins[BASE.coin].coinTicker}
+            <Text size='56px' color={showError ? 'red400' : 'textBlack'} weight={500}>
+              {baseCoinfig.displaySymbol}
             </Text>
           )}
         </AmountRow>
 
-        <QuoteRow
-          style={{ display: amtError || balanceBelowMinimum ? 'none' : 'flex' }}
-        >
+        <QuoteRow style={{ display: amtError || balanceBelowMinimum ? 'none' : 'flex' }}>
           <div style={{ width: '24px' }} />
           <Text
-            color='grey600'
+            color={showError ? 'red400' : 'grey600'}
             size='14px'
             weight={500}
             data-e2e='swapQuoteAmount'
@@ -289,10 +283,10 @@ const Checkout: React.FC<InjectedFormProps<{}, Props> & Props> = props => {
             cursor
             name='up-down-chevron'
             onClick={() =>
-              props.swapActions.switchFix(
-                quoteAmount,
-                fix === 'FIAT' ? 'CRYPTO' : 'FIAT'
-              )
+              props.swapActions.switchFix({
+                amount: quoteAmount,
+                fix: fix === 'FIAT' ? 'CRYPTO' : 'FIAT'
+              })
             }
             role='button'
             size='24px'
@@ -306,19 +300,15 @@ const Checkout: React.FC<InjectedFormProps<{}, Props> & Props> = props => {
         >
           <>
             {amtError === 'BELOW_MIN' ? (
-              <CustomErrorCartridge
-                onClick={handleMinMaxClick}
-                role='button'
-                data-e2e='swapMin'
-              >
+              <CustomErrorCartridge onClick={handleMinMaxClick} role='button' data-e2e='swapMin'>
                 <FormattedMessage
                   id='copy.below_swap_min'
                   defaultMessage='Minimum Swap is {value}'
                   values={{
                     value:
                       fix === 'FIAT'
-                        ? fiatToString({ value: fiatMin, unit: walletCurrency })
-                        : `${min} ${coins[BASE.coin].coinTicker}`
+                        ? fiatToString({ unit: walletCurrency, value: fiatMin })
+                        : `${min} ${baseCoinfig.displaySymbol}`
                   }}
                 />
               </CustomErrorCartridge>
@@ -338,15 +328,18 @@ const Checkout: React.FC<InjectedFormProps<{}, Props> & Props> = props => {
                     height='48px'
                     width='192px'
                   >
-                    <FormattedMessage
-                      id='copy.not_now'
-                      defaultMessage='Not Now'
-                    />
+                    <FormattedMessage id='copy.not_now' defaultMessage='Not Now' />
                   </Button>
                   <Button
                     data-e2e='swapLimitUpgradePrompt'
                     nature='primary'
-                    onClick={() => props.idvActions.verifyIdentity(2, false)}
+                    onClick={() =>
+                      props.idvActions.verifyIdentity({
+                        needMoreInfo: false,
+                        origin: 'Swap',
+                        tier: 2
+                      })
+                    }
                     height='48px'
                     width='192px'
                   >
@@ -365,19 +358,15 @@ const Checkout: React.FC<InjectedFormProps<{}, Props> & Props> = props => {
                 />
               </CustomErrorCartridge>
             ) : (
-              <CustomErrorCartridge
-                onClick={handleMinMaxClick}
-                role='button'
-                data-e2e='swapMax'
-              >
+              <CustomErrorCartridge onClick={handleMinMaxClick} role='button' data-e2e='swapMax'>
                 <FormattedMessage
                   id='copy.above_swap_max'
                   defaultMessage='You can swap up to {value}'
                   values={{
                     value:
                       fix === 'FIAT'
-                        ? fiatToString({ value: fiatMax, unit: walletCurrency })
-                        : `${max} ${coins[BASE.coin].coinTicker}`
+                        ? fiatToString({ unit: walletCurrency, value: fiatMax })
+                        : `${max} ${baseCoinfig.displaySymbol}`
                   }}
                 />
               </CustomErrorCartridge>
@@ -397,30 +386,17 @@ const Checkout: React.FC<InjectedFormProps<{}, Props> & Props> = props => {
         <Amounts>
           <div>
             <Text size='14px' weight={500} color='grey600'>
-              {coins[BASE.coin].coinTicker}{' '}
-              <FormattedMessage
-                id='copy.available'
-                defaultMessage='Available'
-              />
+              {baseCoinfig.displaySymbol}{' '}
+              <FormattedMessage id='copy.available' defaultMessage='Available' />
             </Text>
             <CoinBalance>
-              <CoinDisplay
-                size='14px'
-                weight={500}
-                color='grey900'
-                coin={BASE.coin}
-              >
+              <CoinDisplay size='14px' weight={500} color='grey900' coin={BASE.coin}>
                 {balance}
               </CoinDisplay>
               <Text size='14px' weight={500} color='grey600'>
                 &nbsp;(
               </Text>
-              <FiatDisplay
-                size='14px'
-                weight={500}
-                color='grey600'
-                coin={BASE.coin}
-              >
+              <FiatDisplay size='14px' weight={500} color='grey600' coin={BASE.coin}>
                 {balance}
               </FiatDisplay>
               <Text size='14px' weight={500} color='grey600'>
@@ -433,58 +409,164 @@ const Checkout: React.FC<InjectedFormProps<{}, Props> & Props> = props => {
               role='button'
               data-e2e='swapMin'
               onClick={() =>
-                formActions.change(
-                  'swapAmount',
-                  'amount',
-                  fix === 'FIAT' ? fiatMin : min
-                )
+                props.swapActions.handleSwapMinAmountClick({
+                  amount: fix === 'FIAT' ? fiatMin : min
+                })
               }
             >
-              <FormattedMessage
-                id='buttons.swap_min'
-                defaultMessage='Swap Min'
-              />
+              <FormattedMessage id='buttons.swap_min' defaultMessage='Swap Min' />
             </GreyBlueCartridge>
             <GreyBlueCartridge
               role='button'
               data-e2e='swapMax'
-              onClick={() =>
-                formActions.change(
-                  'swapAmount',
-                  'amount',
-                  fix === 'FIAT' ? fiatMax : max
-                )
-              }
+              onClick={() => {
+                props.swapActions.switchFix({ amount: quoteAmount, fix: 'CRYPTO' })
+                props.swapActions.handleSwapMinAmountClick({ amount: max })
+              }}
             >
-              <FormattedMessage
-                id='buttons.swap_max'
-                defaultMessage='Swap Max'
-              />
+              <FormattedMessage id='buttons.swap_max' defaultMessage='Swap Max' />
             </GreyBlueCartridge>
           </MinMaxButtons>
         </Amounts>
-        <Button
-          nature='primary'
-          data-e2e='previewSwap'
-          type='submit'
-          jumbo
-          fullwidth
-          style={{ marginTop: '24px' }}
-          disabled={props.invalid || isQuoteFailed || disableInsufficientEth}
-        >
-          <FormattedMessage
-            id='buttons.preview_swap'
-            defaultMessage='Preview Swap'
-          />
-        </Button>
+
+        {!showLimitError && !showError && !showBalanceError && (
+          <Button
+            nature='primary'
+            data-e2e='previewSwap'
+            type='submit'
+            jumbo
+            fullwidth
+            style={{ marginTop: '24px' }}
+            disabled={props.invalid || isQuoteFailed || disableInsufficientEth}
+          >
+            <FormattedMessage id='buttons.preview_swap' defaultMessage='Preview Swap' />
+          </Button>
+        )}
+
+        {!showLimitError && !showBalanceError && showError && (
+          <ButtonContainer>
+            <AlertButton>
+              {amtError === 'BELOW_MIN' ? (
+                <FormattedMessage
+                  id='copy.below_min'
+                  defaultMessage='{amount} Minimum'
+                  values={{
+                    amount:
+                      fix === 'FIAT'
+                        ? fiatToString({ unit: walletCurrency, value: fiatMin })
+                        : `${min} ${baseCoinfig.displaySymbol}`
+                  }}
+                />
+              ) : (
+                <FormattedMessage
+                  id='copy.above_max'
+                  defaultMessage='{amount} Maximum'
+                  values={{
+                    amount:
+                      fix === 'FIAT'
+                        ? fiatToString({ unit: walletCurrency, value: fiatMax })
+                        : `${max} ${baseCoinfig.displaySymbol}`
+                  }}
+                />
+              )}
+            </AlertButton>
+
+            <Text
+              size='14px'
+              color='textBlack'
+              weight={500}
+              style={{ marginTop: '24px', textAlign: 'center' }}
+            >
+              {amtError === 'BELOW_MIN' && (
+                <FormattedMessage
+                  id='copy.swap_minimum_amount'
+                  defaultMessage='To avoid unnecessary fees and network slippage, the minimum amount for this pair is {amount}.'
+                  values={{
+                    amount:
+                      fix === 'FIAT'
+                        ? fiatToString({ unit: walletCurrency, value: fiatMin })
+                        : `${min} ${baseCoinfig.displaySymbol}`
+                  }}
+                />
+              )}
+
+              {amtError === 'ABOVE_MAX' && (
+                <FormattedMessage
+                  id='copy.swap_maximum_amount'
+                  defaultMessage='The maximum amount of {coin} you can swap from this wallet is {amount}.'
+                  values={{
+                    amount:
+                      fix === 'FIAT'
+                        ? fiatToString({ unit: walletCurrency, value: fiatMax })
+                        : `${min} ${baseCoinfig.displaySymbol}`,
+                    coin: BASE.coin
+                  }}
+                />
+              )}
+            </Text>
+          </ButtonContainer>
+        )}
+
+        {showLimitError && effectiveLimit && (
+          <>
+            <AlertButton>
+              <FormattedMessage id='copy.over_your_limit' defaultMessage='Over Your Limit' />
+            </AlertButton>
+            <FormattedMessage
+              id='modals.swap.cross_border_max'
+              defaultMessage='Swapping from Trade Accounts cannot exceed {amount} a {period}. You have {remainingAmount} remaining.'
+              values={{
+                amount: formatFiat(convertBaseToStandard('FIAT', effectiveLimit.limit.value), 0),
+                period: effectivePeriod,
+                remainingAmount: formatFiat(
+                  convertBaseToStandard('FIAT', crossBorderLimits.current?.available?.value || 0),
+                  0
+                )
+              }}
+            />
+          </>
+        )}
+
+        {showBalanceError && !showLimitError && (
+          <ButtonContainer>
+            <AlertButton>
+              <FormattedMessage
+                id='copy.not_enough_coin'
+                defaultMessage='Not Enough {coin}'
+                values={{
+                  coin: BASE.coin
+                }}
+              />
+            </AlertButton>
+            <Text
+              size='14px'
+              color='textBlack'
+              weight={500}
+              style={{ marginTop: '24px', textAlign: 'center' }}
+            >
+              <FormattedMessage
+                id='copy.swap_maximum_amount'
+                defaultMessage='The maximum amount of {coin} you can swap from this wallet is {amount}.'
+                values={{
+                  amount:
+                    fix === 'FIAT'
+                      ? fiatToString({ unit: walletCurrency, value: fiatMax })
+                      : `${min} ${baseCoinfig.displaySymbol}`,
+                  coin: BASE.coin
+                }}
+              />
+            </Text>
+          </ButtonContainer>
+        )}
+
         {isQuoteFailed && (
           <ErrorCartridge style={{ marginTop: '16px' }}>
             Error:{' '}
             {props.quoteR.cata({
-              Failure: e => e,
-              Success: () => null,
+              Failure: (e) => e,
               Loading: () => null,
-              NotAsked: () => null
+              NotAsked: () => null,
+              Success: () => null
             })}
           </ErrorCartridge>
         )}
@@ -494,7 +576,7 @@ const Checkout: React.FC<InjectedFormProps<{}, Props> & Props> = props => {
               id='copy.not_enough_eth1'
               defaultMessage='ETH is required to send {coin}. You do not have enough ETH in your Ether Wallet to perform a transaction. Note, ETH must be held in your Ether Wallet for this transaction, not Ether Trading Account.'
               values={{
-                coin: coins[BASE.coin].coinTicker
+                coin: baseCoinfig.displaySymbol
               }}
             />
           </ErrorCartridge>
@@ -508,6 +590,6 @@ export type Props = OwnProps &
   SuccessStateType & { BASE: SwapAccountType; COUNTER: SwapAccountType }
 
 export default reduxForm<{}, Props>({
-  form: 'swapAmount',
-  destroyOnUnmount: false
+  destroyOnUnmount: false,
+  form: 'swapAmount'
 })(Checkout)

@@ -1,20 +1,20 @@
 export default {
-  code: 'TWD',
   base: 'CENT',
+  code: 'TWD',
   displayName: 'New Taiwan Dollar',
   trade: 'TWD',
   units: {
     CENT: {
-      rate: '1',
-      symbol: '¢‎NT$',
+      currency: 'TWD',
       decimal_digits: 0,
-      currency: 'TWD'
+      rate: '1',
+      symbol: '¢‎NT$'
     },
     TWD: {
-      rate: '100',
-      symbol: '‎NT$',
+      currency: 'TWD',
       decimal_digits: 2,
-      currency: 'TWD'
+      rate: '100',
+      symbol: '‎NT$'
     }
   }
 }

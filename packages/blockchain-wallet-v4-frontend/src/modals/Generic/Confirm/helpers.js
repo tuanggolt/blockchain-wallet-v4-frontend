@@ -1,11 +1,11 @@
 import React, { Fragment } from 'react'
-import { FormattedHTMLMessage, FormattedMessage } from 'react-intl'
+import { FormattedMessage } from 'react-intl'
 import { prop } from 'ramda'
 
 import { Link, Text } from 'blockchain-info-components'
 import * as C from 'services/alerts'
 
-export const selectTitle = title => {
+export const selectTitle = (title) => {
   switch (title) {
     case C.BITPAY_CONFIRM_TITLE:
       return (
@@ -23,18 +23,10 @@ export const selectTitle = title => {
       )
     case C.PHONE_CALL_TITLE:
       return (
-        <FormattedMessage
-          id='modals.confirm.title.phone_call'
-          defaultMessage='Trade In Progress'
-        />
+        <FormattedMessage id='modals.confirm.title.phone_call' defaultMessage='Trade In Progress' />
       )
     case C.CONFIRM_DELETE_LOCKBOX_TITLE:
-      return (
-        <FormattedMessage
-          id='modals.confirm.title.lockbox'
-          defaultMessage='Unpair Device'
-        />
-      )
+      return <FormattedMessage id='modals.confirm.title.lockbox' defaultMessage='Unpair Device' />
     case C.ARCHIVE_VULNERABLE_ADDRESS_TITLE:
       return (
         <FormattedMessage
@@ -50,9 +42,7 @@ export const selectTitle = title => {
         />
       )
     default:
-      return (
-        <FormattedMessage id='modals.confirm.title' defaultMessage='Confirm' />
-      )
+      return <FormattedMessage id='modals.confirm.title' defaultMessage='Confirm' />
   }
 }
 
@@ -74,7 +64,7 @@ export const selectMessage = (message, values) => {
       )
     case C.PHONE_CALL_MSG:
       return (
-        <Fragment>
+        <>
           <Text size='18px'>
             <FormattedMessage
               id='modals.confirm.message.phone_call'
@@ -89,13 +79,13 @@ export const selectMessage = (message, values) => {
             />
             <br />
             <br />
-            <FormattedHTMLMessage
+            <FormattedMessage
               id='modals.confirm.message.phone_call_2'
               defaultMessage='If this sounds good to you, you will receive a call within the next 24 hours to <b>{smsNumber}</b>.'
               values={values}
             />
           </Text>
-        </Fragment>
+        </>
       )
     case C.CONFIRM_DELETE_LOCKBOX_MESSAGE:
       return (
@@ -112,12 +102,7 @@ export const selectMessage = (message, values) => {
           values={{
             addr: prop('vulnerableAddress', values),
             support: (
-              <Link
-                size='16px'
-                weight={500}
-                target='_blank'
-                href='https://support.blockchain.com'
-              >
+              <Link size='16px' weight={500} target='_blank' href='https://support.blockchain.com'>
                 support
               </Link>
             )
@@ -132,37 +117,22 @@ export const selectMessage = (message, values) => {
         />
       )
     default:
-      return (
-        <FormattedMessage
-          id='modals.confirm.message'
-          defaultMessage='Please confirm.'
-        />
-      )
+      return <FormattedMessage id='modals.confirm.message' defaultMessage='Please confirm.' />
   }
 }
 
-export const selectCancel = message => {
+export const selectCancel = (message) => {
   switch (message) {
     case C.CANCEL_VERIFY_IDENTITY:
-      return (
-        <FormattedMessage
-          id='modals.confirm.cancel.verify_identity'
-          defaultMessage="I'll Do This Later"
-        />
-      )
+      return <FormattedMessage id='copy.ill_do_this_later' defaultMessage="I'll Do This Later" />
     case C.CANCEL_PHONE_CALL:
-      return (
-        <FormattedMessage
-          id='modals.confirm.cancel.phone_call'
-          defaultMessage='No, Thanks'
-        />
-      )
+      return <FormattedMessage id='modals.confirm.cancel.phone_call' defaultMessage='No, Thanks' />
     default:
       return <FormattedMessage id='buttons.cancel' defaultMessage='Cancel' />
   }
 }
 
-export const selectConfirm = message => {
+export const selectConfirm = (message) => {
   switch (message) {
     case C.CONFIRM_VERIFY_IDENTITY:
       return (
@@ -180,10 +150,7 @@ export const selectConfirm = message => {
       )
     case C.CONFIRM_PHONE_CALL:
       return (
-        <FormattedMessage
-          id='modals.confirm.confirm.phone_call'
-          defaultMessage='Give Me A Call'
-        />
+        <FormattedMessage id='modals.confirm.confirm.phone_call' defaultMessage='Give Me A Call' />
       )
     default:
       return <FormattedMessage id='modals.confirm.button' defaultMessage='OK' />

@@ -2,6 +2,7 @@ import styled from 'styled-components'
 
 import { Text } from 'blockchain-info-components'
 
+import { TableColumnsType } from '..'
 import { getActionsColumn } from './actions.column'
 import { getBalanceColumn } from './balance.column'
 import { getNameColumn } from './name.column'
@@ -21,24 +22,38 @@ export const TableWrapper = styled.div`
     overflow-y: hidden;
   }
 
-  table {
+  .table {
     /* make sure the inner table is always as wide as needed */
-    width: 100%;
+    display: block;
+    width: 99%;
+    height: calc(100vh - 220px);
     border-spacing: 0;
-    border: 1px solid ${props => props.theme.grey100};
+    border: 1px solid ${(props) => props.theme.grey100};
     border-radius: 8px;
 
-    td {
-      border-top: 1px solid ${props => props.theme.grey100};
+    .th {
+      display: table-header-group;
+      padding: 16px 8px;
     }
 
-    th,
-    td {
+    .th,
+    .td {
+      vertical-align: middle;
+      display: table-cell;
       margin: 0;
-      padding: 16px 8px;
       text-align: left;
-      /* make sure each cell grows equally */
-      width: 1%;
+      width: 20%;
+    }
+
+    .td {
+      border-top: 1px solid ${(props) => props.theme.grey100};
+      height: 90px;
+      padding: 0;
+    }
+
+    .tr {
+      display: table;
+      width: 100%;
     }
   }
 `
@@ -48,14 +63,14 @@ export const CellHeaderText = styled(Text)`
   font-weight: 500;
   font-size: 14px;
   line-height: 20px;
-  color: ${props => props.theme.grey400};
+  color: ${(props) => props.theme.grey400};
 `
 export const CellText = styled(Text)`
   font-style: normal;
   font-weight: 500;
-  font-size: ${props => (props.size ? props.size : '16px')};
+  font-size: ${(props) => (props.size ? props.size : '16px')};
   line-height: 24px;
-  color: ${props => (props.color ? props.color : props.theme.grey900)};
+  color: ${(props) => (props.color ? props.color : props.theme.grey900)};
 `
 export const HeaderText = styled.div`
   display: flex;
@@ -68,14 +83,13 @@ export const HeaderText = styled.div`
   }
 `
 
-export const getTableColumns = ({
-  modalActions,
-  routerActions,
-  walletCurrency
-}) => () => [
-  getNameColumn(routerActions),
-  getPriceColumn(walletCurrency),
-  getPriceChangeColumn(),
-  getBalanceColumn(),
-  getActionsColumn(modalActions)
-]
+export const getTableColumns =
+  ({ buySellActions, formActions, modalActions, swapActions, walletCurrency }: TableColumnsType) =>
+  () =>
+    [
+      getNameColumn(modalActions),
+      getPriceColumn(walletCurrency),
+      getPriceChangeColumn(),
+      getBalanceColumn(),
+      getActionsColumn(modalActions, buySellActions, swapActions, formActions)
+    ]

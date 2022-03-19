@@ -1,13 +1,4 @@
-import {
-  append,
-  assoc,
-  assocPath,
-  compose,
-  dropLast,
-  lensProp,
-  merge,
-  over
-} from 'ramda'
+import { append, assoc, assocPath, compose, dropLast, lensProp, merge, over } from 'ramda'
 
 import Remote from '../../../remote'
 import * as AT from './actionTypes'
@@ -17,10 +8,9 @@ const INITIAL_STATE = {
   fee: Remote.NotAsked,
   info: Remote.NotAsked,
   latest_block: Remote.NotAsked,
-  rates: Remote.NotAsked,
+  transaction_history: Remote.NotAsked,
   transactions: [],
-  transactions_at_bound: false,
-  transaction_history: Remote.NotAsked
+  transactions_at_bound: false
 }
 
 const bchReducer = (state = INITIAL_STATE, action) => {
@@ -64,15 +54,6 @@ const bchReducer = (state = INITIAL_STATE, action) => {
     case AT.FETCH_BCH_FEE_FAILURE: {
       return assoc('fee', Remote.Failure(payload), state)
     }
-    case AT.FETCH_BCH_RATES_LOADING: {
-      return assoc('rates', Remote.Loading, state)
-    }
-    case AT.FETCH_BCH_RATES_SUCCESS: {
-      return assoc('rates', Remote.Success(payload), state)
-    }
-    case AT.FETCH_BCH_RATES_FAILURE: {
-      return assoc('rates', Remote.Failure(payload), state)
-    }
     case AT.FETCH_BCH_TRANSACTIONS_LOADING: {
       const { reset } = payload
       return reset
@@ -81,11 +62,14 @@ const bchReducer = (state = INITIAL_STATE, action) => {
     }
     case AT.FETCH_BCH_TRANSACTIONS_SUCCESS: {
       const { reset, transactions } = payload
+      const filteredTransactions = transactions.filter(
+        (tx) => tx.state !== 'EXPIRED' && tx.state !== 'PENDING_CONFIRMATION'
+      )
       return reset
-        ? assoc('transactions', [Remote.Success(transactions)], state)
+        ? assoc('transactions', [Remote.Success(filteredTransactions)], state)
         : over(
             lensProp('transactions'),
-            compose(append(Remote.Success(transactions)), dropLast(1)),
+            compose(append(Remote.Success(filteredTransactions)), dropLast(1)),
             state
           )
     }

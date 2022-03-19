@@ -1,4 +1,4 @@
-import { CoinType, FiatType, MiscActionTypes, PriceMovementDirType, TimeRange } from 'core/types'
+import { CoinType, FiatType, MiscActionTypes, PriceMovementDirType, TimeRange } from '@core/types'
 
 import * as AT from './actionTypes'
 
@@ -83,8 +83,8 @@ export const encodePairingCodeFailure = (error) => ({
 })
 
 // AUTHORIZE_LOGIN
-export const authorizeLogin = (token, confirm?: any) => ({
-  payload: { confirm, token },
+export const authorizeLogin = (token, confirm?: any, session?: string) => ({
+  payload: { confirm, session, token },
   type: AT.AUTHORIZE_LOGIN
 })
 export const authorizeLoginLoading = () => ({

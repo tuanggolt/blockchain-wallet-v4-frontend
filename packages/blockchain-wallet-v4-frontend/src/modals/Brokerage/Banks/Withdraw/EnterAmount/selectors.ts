@@ -1,26 +1,16 @@
 import { lift } from 'ramda'
 
-import Remote from 'blockchain-wallet-v4/src/remote/remote'
-import {
-  ExtractSuccess,
-  SupportedWalletCurrenciesType
-} from 'blockchain-wallet-v4/src/types'
-import {
-  getFiatBalance,
-  getWithdrawableFiatBalance
-} from 'components/Balances/selectors'
-import { InvitationsType } from 'core/types'
+import { Remote } from '@core'
+import { CrossBorderLimits, ExtractSuccess, InvitationsType } from '@core/types'
+import { getFiatBalance, getWithdrawableFiatBalance } from 'components/Balances/selectors'
 import { selectors } from 'data'
 import { RootState } from 'data/rootReducer'
 import { BankTransferAccountType } from 'data/types'
 
 import { OwnProps } from '.'
 
-export const getData = (state: RootState, ownProps: OwnProps) => {
-  const withdrawableBalanceR = getWithdrawableFiatBalance(
-    ownProps.fiatCurrency,
-    state
-  )
+const getData = (state: RootState, ownProps: OwnProps) => {
+  const withdrawableBalanceR = getWithdrawableFiatBalance(ownProps.fiatCurrency, state)
   const availableBalanceR = getFiatBalance(ownProps.fiatCurrency, state)
   const defaultBeneficiaryR = selectors.custodial.getDefaultBeneficiary(
     ownProps.fiatCurrency,
@@ -29,40 +19,31 @@ export const getData = (state: RootState, ownProps: OwnProps) => {
   let defaultMethodR = selectors.components.brokerage.getAccount(state) as
     | BankTransferAccountType
     | undefined
-  let bankTransferAccountsR = selectors.components.brokerage.getBankTransferAccounts(
-    state
-  )
+  let bankTransferAccountsR = selectors.components.brokerage.getBankTransferAccounts(state)
   // TODO: Remove this when ach deposits withdrawals gets rolled out hundo P
-  const invitations: InvitationsType = selectors.core.settings
-    .getInvitations(state)
-    .getOrElse({
-      openBanking: false
-    } as InvitationsType)
+  const invitations: InvitationsType = selectors.core.settings.getInvitations(state).getOrElse({
+    openBanking: false
+  } as InvitationsType)
 
   if (!invitations.openBanking && ownProps.fiatCurrency !== 'USD') {
     defaultMethodR = undefined
     bankTransferAccountsR = Remote.Success([])
   }
+  const paymentMethodsR = selectors.components.buySell.getBSPaymentMethods(state)
 
-  const formErrors = selectors.form.getFormSyncErrors('custodyWithdrawForm')(
-    state
-  )
   const userDataR = selectors.modules.profile.getUserData(state)
   const minAmountR = selectors.components.withdraw.getMinAmountForCurrency(
     state,
     ownProps.fiatCurrency
   )
 
-  const feesR = selectors.components.withdraw.getFeeForCurrency(
-    state,
-    ownProps.fiatCurrency
-  )
-  const lockR = selectors.components.withdraw.getWithdrawalLocks(state)
+  const feesR = selectors.components.withdraw.getFeeForCurrency(state, ownProps.fiatCurrency)
+  const withdrawalLocksR = selectors.components.withdraw.getWithdrawalLocks(state)
+  const crossBorderLimits = selectors.components.withdraw
+    .getCrossBorderLimits(state)
+    .getOrElse({} as CrossBorderLimits)
+  const formErrors = selectors.form.getFormAsyncErrors('brokerageTx')(state)
 
-  const supportedCoinsR = selectors.core.walletOptions.getSupportedCoins(state)
-  const supportedCoins = supportedCoinsR.getOrElse(
-    {} as SupportedWalletCurrenciesType
-  )
   return lift(
     (
       bankTransferAccounts: ExtractSuccess<typeof bankTransferAccountsR>,
@@ -72,19 +53,21 @@ export const getData = (state: RootState, ownProps: OwnProps) => {
       userData: ExtractSuccess<typeof userDataR>,
       minAmount: ExtractSuccess<typeof minAmountR>,
       fees: ExtractSuccess<typeof feesR>,
-      locks: ExtractSuccess<typeof lockR>
+      paymentMethods: ExtractSuccess<typeof paymentMethodsR>,
+      withdrawalLocks: ExtractSuccess<typeof withdrawalLocksR>
     ) => ({
-      bankTransferAccounts,
-      withdrawableBalance,
       availableBalance,
+      bankTransferAccounts,
+      crossBorderLimits,
       defaultBeneficiary,
       defaultMethod: defaultMethodR,
-      formErrors,
-      userData,
-      minAmount,
       fees,
-      locks,
-      supportedCoins
+      formErrors,
+      minAmount,
+      paymentMethods,
+      userData,
+      withdrawableBalance,
+      withdrawalLocks
     })
   )(
     bankTransferAccountsR,
@@ -94,6 +77,9 @@ export const getData = (state: RootState, ownProps: OwnProps) => {
     userDataR,
     minAmountR,
     feesR,
-    lockR
+    paymentMethodsR,
+    withdrawalLocksR
   )
 }
+
+export default getData

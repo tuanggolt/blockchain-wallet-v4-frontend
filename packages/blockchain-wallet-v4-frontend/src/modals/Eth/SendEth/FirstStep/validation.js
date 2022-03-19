@@ -1,9 +1,14 @@
 import React from 'react'
 import BigNumber from 'bignumber.js'
-import { prop } from 'ramda'
+import { isEmpty, prop } from 'ramda'
 
-import { Exchange } from 'blockchain-wallet-v4/src'
+import { Exchange } from '@core'
+import Currencies from '@core/exchange/currencies'
+import { formatFiat } from '@core/exchange/utils'
+import { convertBaseToStandard } from 'data/components/exchange/services'
+import { getEffectiveLimit, getEffectivePeriod } from 'services/custodial'
 
+import { OverYourLimitMessage } from '../../../components'
 import {
   InsufficientFundsMessage,
   InvalidAmountMessage,
@@ -12,17 +17,19 @@ import {
   MinimumFeeMessage
 } from './validationMessages'
 
+// eslint-disable-next-line
 export const insufficientFunds = (value, allValues, props) => {
   return props.effectiveBalance > 0 ? undefined : <InsufficientFundsMessage />
 }
 
+// eslint-disable-next-line
 export const invalidAmount = (value, allValues, props) => {
   const valueEth = prop('coin', value)
-  const valueWei = Exchange.convertEtherToEther({
-    value: valueEth,
-    fromUnit: 'ETH',
-    toUnit: 'WEI'
-  }).value
+  const valueWei = Exchange.convertCoinToCoin({
+    baseToStandard: false,
+    coin: 'ETH',
+    value: valueEth
+  })
   return valueWei > 0 ? undefined : <InvalidAmountMessage />
 }
 
@@ -32,41 +39,26 @@ export const maximumAmount = (value, allValues, props) => {
     const coin = prop('coin', props)
     const effectiveBalanceWei = prop('effectiveBalance', props)
     const effectiveBalance = Exchange.convertCoinToCoin({
-      value: effectiveBalanceWei,
       coin,
-      baseToStandard: true
-    }).value
+      value: effectiveBalanceWei
+    })
     return new BigNumber(coinValue).isLessThanOrEqualTo(
       new BigNumber(effectiveBalance || 0)
-    ) ? (
-      undefined
-    ) : (
+    ) ? undefined : (
       <MaximumAmountMessage coin={props.coin} />
     )
-  } catch (e) {}
+  } catch (e) {
+    // do nothing
+  }
 }
 
 export const minimumFee = (value, allValues, props) =>
-  value && parseInt(value) >= props.minFee ? (
-    undefined
-  ) : (
-    <MinimumFeeMessage coin={props.coin} />
-  )
+  value && parseInt(value) >= props.minFee ? undefined : <MinimumFeeMessage coin={props.coin} />
 
 export const maximumFee = (value, allValues, props) =>
-  value && parseInt(value) <= props.maxFee ? (
-    undefined
-  ) : (
-    <MaximumFeeMessage coin={props.coin} />
-  )
+  value && parseInt(value) <= props.maxFee ? undefined : <MaximumFeeMessage coin={props.coin} />
 
-export const shouldError = ({
-  initialRender,
-  nextProps,
-  props,
-  structure,
-  values
-}) => {
+export const shouldError = ({ initialRender, nextProps, props, structure, values }) => {
   if (initialRender) {
     return true
   }
@@ -77,13 +69,7 @@ export const shouldError = ({
   )
 }
 
-export const shouldWarn = ({
-  initialRender,
-  nextProps,
-  props,
-  structure,
-  values
-}) => {
+export const shouldWarn = ({ initialRender, nextProps, props, structure, values }) => {
   if (initialRender) {
     return true
   }
@@ -92,4 +78,29 @@ export const shouldWarn = ({
     !structure.deepEqual(values, nextProps.values) ||
     props.effectiveBalance !== nextProps.effectiveBalance
   )
+}
+
+export const isSendLimitOver = (value, allValues, props) => {
+  const { from, sendLimits } = props
+  const fiatValue = prop('fiat', value)
+  const isFromCustodial = from && from.type === 'CUSTODIAL'
+
+  if (!isFromCustodial || isEmpty(sendLimits) || !sendLimits?.current?.available?.currency) {
+    return undefined
+  }
+
+  const { currency, value: availableAmount } = sendLimits?.current?.available
+  const availableAmountInBase = convertBaseToStandard('FIAT', availableAmount)
+
+  const effectiveLimit = getEffectiveLimit(sendLimits)
+  const effectivePeriod = getEffectivePeriod(sendLimits)
+
+  return fiatValue > Number(availableAmountInBase) ? (
+    <OverYourLimitMessage
+      amount={formatFiat(availableAmountInBase)}
+      currency={Currencies[currency].units[currency].symbol}
+      limit={formatFiat(convertBaseToStandard('FIAT', effectiveLimit.limit.value), 0)}
+      period={effectivePeriod}
+    />
+  ) : undefined
 }

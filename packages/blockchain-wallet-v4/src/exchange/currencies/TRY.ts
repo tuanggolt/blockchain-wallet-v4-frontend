@@ -1,20 +1,20 @@
 export default {
-  code: 'TRY',
   base: 'CENT',
+  code: 'TRY',
   displayName: 'Turkish Lira',
   trade: 'TRY',
   units: {
     CENT: {
-      rate: '1',
-      symbol: '₺',
+      currency: 'TRY',
       decimal_digits: 0,
-      currency: 'TRY'
+      rate: '1',
+      symbol: '₺'
     },
     TRY: {
-      rate: '100',
-      symbol: '₺',
+      currency: 'TRY',
       decimal_digits: 2,
-      currency: 'TRY'
+      rate: '100',
+      symbol: '₺'
     }
   }
 }

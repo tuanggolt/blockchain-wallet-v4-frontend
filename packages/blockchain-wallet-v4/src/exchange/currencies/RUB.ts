@@ -1,20 +1,20 @@
 export default {
-  code: 'RUB',
   base: 'CENT',
+  code: 'RUB',
   displayName: 'Russian Ruble',
   trade: 'RUB',
   units: {
     CENT: {
-      rate: '1',
-      symbol: '¢₽',
+      currency: 'RUB',
       decimal_digits: 0,
-      currency: 'RUB'
+      rate: '1',
+      symbol: '¢₽'
     },
     RUB: {
-      rate: '100',
-      symbol: '₽',
+      currency: 'RUB',
       decimal_digits: 2,
-      currency: 'RUB'
+      rate: '100',
+      symbol: '₽'
     }
   }
 }

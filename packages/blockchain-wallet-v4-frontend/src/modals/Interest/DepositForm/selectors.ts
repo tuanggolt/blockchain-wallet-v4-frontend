@@ -1,14 +1,13 @@
 import { lift, pathOr, propOr } from 'ramda'
 
-import { Exchange } from 'blockchain-wallet-v4/src'
+import { Exchange } from '@core'
 import {
-  Erc20CoinsEnum,
   ExtractSuccess,
   FiatType,
   InterestAfterTransactionType,
   InterestFormErrorsType,
-  RemoteDataType,
-} from 'blockchain-wallet-v4/src/types'
+  RemoteDataType
+} from '@core/types'
 import { selectors } from 'data'
 import { convertBaseToStandard } from 'data/components/exchange/services'
 import { RootState } from 'data/rootReducer'
@@ -24,24 +23,24 @@ export const getData = (state: RootState) => {
     state
   ) as InterestFormErrorsType
   const interestLimitsR = selectors.components.interest.getInterestLimits(state)
+  const interestEDDStatusR = selectors.components.interest.getInterestEDDStatus(state)
   const interestRateR = selectors.components.interest.getInterestRate(state)
   const depositLimits = selectors.components.interest.getDepositLimits(state)
-  const displayCoin = selectors.components.interest.getCoinDisplay(state)
+  const displayCoin = selectors.components.interest.getIsAmountDisplayedInCrypto(state)
   const ethRatesR = selectors.core.data.misc.getRatesSelector('ETH', state)
   const paymentR = selectors.components.interest.getPayment(state)
-  const supportedCoinsR = selectors.core.walletOptions.getSupportedCoins(state)
   const walletCurrencyR = selectors.core.settings.getCurrency(state) as RemoteDataType<
     string,
     FiatType
   >
-  const interestEDDWithdrawLimitsR = selectors.components.interest.getInterestEDDWithdrawLimits(
-    state
-  )
+  const interestEDDDepositLimitsR = selectors.components.interest.getInterestEDDDepositLimits(state)
+  const interestAccount = selectors.components.interest
+    .getInterestAccount(state)
+    .getOrElse({ accountRef: '' })
 
   const afterTransaction = selectors.components.interest
     .getAfterTransaction(state)
     .getOrElse({} as InterestAfterTransactionType)
-  const isFromBuySell = selectors.components.interest.getIsFromBuySell(state)
 
   const prefillAmount = afterTransaction?.show ? afterTransaction.amount : undefined
 
@@ -52,26 +51,27 @@ export const getData = (state: RootState) => {
       interestRate: ExtractSuccess<typeof interestRateR>,
       ethRates: ExtractSuccess<typeof ethRatesR>,
       payment: ExtractSuccess<typeof paymentR>,
-      supportedCoins: ExtractSuccess<typeof supportedCoinsR>,
       walletCurrency: ExtractSuccess<typeof walletCurrencyR>,
-      interestEDDWithdrawLimits
+      interestEDDDepositLimits,
+      interestEDDStatus
     ) => {
+      const { coinfig } = window.coins[coin]
       const depositFee =
         coin === 'BCH' || coin === 'BTC'
           ? Number(pathOr('0', ['selection', 'fee'], payment))
           : Number(propOr('0', 'fee', payment))
 
-      const feeCrypto =
-        coin in Erc20CoinsEnum
-          ? convertBaseToStandard('ETH', depositFee)
-          : convertBaseToStandard(coin, depositFee)
+      const feeCrypto = coinfig.type.erc20Address
+        ? convertBaseToStandard('ETH', depositFee)
+        : convertBaseToStandard(coin, depositFee)
 
-      const feeFiat = Exchange.convertCoinToFiat(
-        feeCrypto,
-        coin in Erc20CoinsEnum ? 'ETH' : coin,
-        walletCurrency,
-        coin in Erc20CoinsEnum ? ethRates : rates
-      )
+      const feeFiat = Exchange.convertCoinToFiat({
+        coin,
+        currency: walletCurrency,
+        isStandard: true,
+        rates: coinfig.type.erc20Address ? ethRates : rates,
+        value: feeCrypto
+      })
 
       return {
         coin,
@@ -81,14 +81,14 @@ export const getData = (state: RootState) => {
         feeCrypto,
         feeFiat,
         formErrors,
-        interestEDDWithdrawLimits,
+        interestAccount,
+        interestEDDDepositLimits,
+        interestEDDStatus,
         interestLimits,
         interestRate,
-        isFromBuySell,
         payment,
         prefillAmount,
-        rates,
-        supportedCoins,
+        rates
       }
     }
   )(
@@ -97,8 +97,8 @@ export const getData = (state: RootState) => {
     interestRateR,
     ethRatesR,
     paymentR,
-    supportedCoinsR,
     walletCurrencyR,
-    interestEDDWithdrawLimitsR
+    interestEDDDepositLimitsR,
+    interestEDDStatusR
   )
 }

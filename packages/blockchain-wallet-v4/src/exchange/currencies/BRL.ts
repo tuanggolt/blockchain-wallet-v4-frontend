@@ -1,20 +1,20 @@
 export default {
-  code: 'BRL',
   base: 'CENT',
+  code: 'BRL',
   displayName: 'Brazil Real',
   trade: 'BRL',
   units: {
-    CENT: {
-      rate: '1',
-      symbol: '¢R$',
-      decimal_digits: 0,
-      currency: 'BRL'
-    },
     BRL: {
-      rate: '100',
-      symbol: 'R$',
+      currency: 'BRL',
       decimal_digits: 2,
-      currency: 'BRL'
+      rate: '100',
+      symbol: 'R$'
+    },
+    CENT: {
+      currency: 'BRL',
+      decimal_digits: 0,
+      rate: '1',
+      symbol: '¢R$'
     }
   }
 }

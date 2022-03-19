@@ -24,3 +24,7 @@ export const errorHandler = (e): string => {
     ? e
     : 'Unknown Error'
 }
+
+export const errorHandlerCode = (e) => {
+  return typeof e === 'object' && e.code ? e.code : errorHandler(e)
+}

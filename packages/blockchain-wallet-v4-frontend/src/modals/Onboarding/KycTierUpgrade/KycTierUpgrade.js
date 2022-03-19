@@ -1,5 +1,5 @@
 import React from 'react'
-import { FormattedHTMLMessage, FormattedMessage } from 'react-intl'
+import { FormattedMessage } from 'react-intl'
 import { connect } from 'react-redux'
 import { path } from 'ramda'
 import styled from 'styled-components'
@@ -27,7 +27,7 @@ const Title = styled(Text)`
   font-size: 20px;
   b {
     font-weight: 500;
-    color: ${props => props.theme.success};
+    color: ${(props) => props.theme.success};
   }
 `
 const Message = styled(Text)`
@@ -39,8 +39,8 @@ const BottomImage = styled(Image)`
   align-self: flex-end;
 `
 const FooterButton = styled(Button).attrs({
-  nature: 'primary',
-  fullwidth: true
+  fullwidth: true,
+  nature: 'primary'
 })`
   height: auto;
   font-size: 17px;
@@ -55,20 +55,13 @@ class KycTierUpgrade extends React.PureComponent {
   }
 
   render() {
-    const {
-      amountLeft,
-      nextTier,
-      nextTierAmount,
-      position,
-      total,
-      upgrade
-    } = this.props
+    const { amountLeft, nextTier, nextTierAmount, position, total, upgrade } = this.props
 
     return (
       <Modal size='small' position={position} total={total}>
         <Body data-e2e='swapGetStarted'>
           <Title size='20px'>
-            <FormattedHTMLMessage
+            <FormattedMessage
               defaultMessage='Heads up! You have <b>{amount}</b> left to Swap'
               id='modals.swap_upgrade.heads_up'
               values={{
@@ -81,21 +74,13 @@ class KycTierUpgrade extends React.PureComponent {
               defaultMessage='Upgrade to {nextLevel} and Swap up to {amount} every day.'
               id='modals.swap_upgrade.amount_after_upgrade'
               values={{
-                nextLevel: headers[path([nextTier, 'level'], TIERS)],
-                amount: nextTierAmount
+                amount: nextTierAmount,
+                nextLevel: headers[path([nextTier, 'level'], TIERS)]
               }}
             />
           </Message>
-          <FooterButton
-            nature='primary'
-            size='20px'
-            fullwidth
-            onClick={upgrade}
-          >
-            <FormattedMessage
-              defaultMessage='Upgrade Now'
-              id='modals.swap_upgrade.upgrade_now'
-            />
+          <FooterButton nature='primary' size='20px' fullwidth onClick={upgrade}>
+            <FormattedMessage defaultMessage='Upgrade Now' id='modals.swap_upgrade.upgrade_now' />
           </FooterButton>
           <BottomImage name='identity-verification' />
         </Body>
@@ -108,13 +93,15 @@ const mapDispatchToProps = (dispatch, { nextTier }) => ({
   dontShowAgain: () => dispatch(actions.preferences.hideSwapUpgradeModal()),
   upgrade: () => {
     dispatch(actions.modals.closeModal())
-    dispatch(actions.components.identityVerification.verifyIdentity(nextTier))
+    dispatch(
+      actions.components.identityVerification.verifyIdentity({
+        origin: 'Onboarding',
+        tier: nextTier
+      })
+    )
   }
 })
 
-export const ConnectedSwapUpgrade = connect(
-  getData,
-  mapDispatchToProps
-)(KycTierUpgrade)
+export const ConnectedSwapUpgrade = connect(getData, mapDispatchToProps)(KycTierUpgrade)
 
 export default modalEnhancer('KYC_TIER_UPGRADE_MODAL')(ConnectedSwapUpgrade)

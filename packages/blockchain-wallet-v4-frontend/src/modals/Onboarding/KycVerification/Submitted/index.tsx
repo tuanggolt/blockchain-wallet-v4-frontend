@@ -1,5 +1,5 @@
 import React from 'react'
-import { FormattedHTMLMessage, FormattedMessage } from 'react-intl'
+import { FormattedMessage } from 'react-intl'
 import { connect, ConnectedProps } from 'react-redux'
 import { bindActionCreators, compose } from 'redux'
 import { InjectedFormProps, reduxForm } from 'redux-form'
@@ -34,9 +34,7 @@ const CloseButton = styled(Button)`
   min-width: 210px;
 `
 
-class Submitted extends React.PureComponent<
-  InjectedFormProps<{}, Props> & Props
-> {
+class Submitted extends React.PureComponent<InjectedFormProps<{}, Props> & Props> {
   componentDidMount() {
     const { campaign, identityVerificationActions } = this.props
     if (campaign) {
@@ -71,7 +69,7 @@ class Submitted extends React.PureComponent<
               />
             </Text>
             <Text color='grey600' size='16px'>
-              <FormattedHTMLMessage
+              <FormattedMessage
                 id='modals.exchange.identityverification.submitted.view_status'
                 defaultMessage='You can view your application status by navigating to Settings and selecting Profile.'
               />
@@ -84,9 +82,7 @@ class Submitted extends React.PureComponent<
             </Text>
           </NextSteps>
           <Form>
-            {submitting && (
-              <HeartbeatLoader height='32px' width='32px' color='blue500' />
-            )}
+            {submitting && <HeartbeatLoader height='32px' width='32px' color='blue500' />}
             <CloseButton
               data-e2e='kycSubmittedDone'
               nature='empty-secondary'
@@ -102,19 +98,13 @@ class Submitted extends React.PureComponent<
   }
 }
 
-const mapDispatchToProps = dispatch => ({
-  identityVerificationActions: bindActionCreators(
-    actions.components.identityVerification,
-    dispatch
-  )
+const mapDispatchToProps = (dispatch) => ({
+  identityVerificationActions: bindActionCreators(actions.components.identityVerification, dispatch)
 })
 
 const connector = connect(null, mapDispatchToProps)
 
-const enhance = compose(
-  reduxForm({ form: ID_VERIFICATION_SUBMITTED_FORM }),
-  connector
-)
+const enhance = compose(reduxForm({ form: ID_VERIFICATION_SUBMITTED_FORM }), connector)
 
 type OwnProps = { campaign?: CampaignsType; onClose: () => void }
 

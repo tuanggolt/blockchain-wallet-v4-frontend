@@ -1,7 +1,6 @@
-import { coreSelectors as core } from 'blockchain-wallet-v4/src'
+import { coreSelectors as core } from '@core'
 
 import * as alerts from './alerts/selectors'
-import * as analytics from './analytics/selectors'
 import * as auth from './auth/selectors'
 import * as cache from './cache/selectors'
 import * as coins from './coins/selectors'
@@ -9,6 +8,7 @@ import * as components from './components/selectors'
 import * as custodial from './custodial/selectors'
 import * as form from './form/selectors'
 import * as goals from './goals/selectors'
+import * as misc from './misc/selectors'
 import * as modals from './modals/selectors'
 import * as modules from './modules/selectors'
 import * as preferences from './preferences/selectors'
@@ -18,7 +18,6 @@ import * as session from './session/selectors'
 
 export {
   alerts,
-  analytics,
   auth,
   cache,
   coins,
@@ -27,6 +26,7 @@ export {
   custodial,
   form,
   goals,
+  misc,
   modals,
   modules,
   preferences,

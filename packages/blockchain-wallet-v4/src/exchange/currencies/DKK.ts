@@ -1,20 +1,20 @@
 export default {
-  code: 'DKK',
   base: 'CENT',
+  code: 'DKK',
   displayName: 'Danish Krone',
   trade: 'DKK',
   units: {
     CENT: {
-      rate: '1',
-      symbol: '¢kr',
+      currency: 'DKK',
       decimal_digits: 0,
-      currency: 'DKK'
+      rate: '1',
+      symbol: '¢kr'
     },
     DKK: {
-      rate: '100',
-      symbol: 'kr',
+      currency: 'DKK',
       decimal_digits: 2,
-      currency: 'DKK'
+      rate: '100',
+      symbol: 'kr'
     }
   }
 }

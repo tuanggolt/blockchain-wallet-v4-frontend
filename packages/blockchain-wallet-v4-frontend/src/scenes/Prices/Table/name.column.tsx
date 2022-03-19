@@ -4,6 +4,7 @@ import styled from 'styled-components'
 
 import { Icon } from 'blockchain-info-components'
 
+import { TableColumnsType } from '..'
 import { CellHeaderText, CellText } from '.'
 
 const HeaderWrapper = styled.div`
@@ -23,7 +24,22 @@ const CoinIcon = styled(Icon)`
   margin-right: 16px;
 `
 
-export const getNameColumn = routerActions => ({
+export const getNameColumn = (modalActions: TableColumnsType['modalActions']) => ({
+  Cell: ({ row: { original: values } }) => {
+    return (
+      <CellWrapper
+        onClick={() => {
+          modalActions.showModal('REQUEST_CRYPTO_MODAL', {
+            origin: 'Prices',
+            preselectedCoin: values.coin
+          })
+        }}
+      >
+        <CoinIcon name={values.coin} size='32px' color={values.coin} />
+        <CellText>{values.name}</CellText>
+      </CellWrapper>
+    )
+  },
   Header: () => (
     <HeaderWrapper>
       <CellHeaderText>
@@ -32,19 +48,7 @@ export const getNameColumn = routerActions => ({
     </HeaderWrapper>
   ),
   accessor: 'name',
-  sortType: 'alphanumeric',
-  Cell: ({ row: { original: values } }) => {
-    return (
-      <CellWrapper
-        onClick={() => routerActions.push(values.coinModel.txListAppRoute)}
-      >
-        <CoinIcon
-          name={values.coinModel?.coinCode}
-          size='32px'
-          color={values.coinModel?.coinCode}
-        />
-        <CellText>{values.name}</CellText>
-      </CellWrapper>
-    )
-  }
+  sortType: 'alphanumeric'
 })
+
+export default getNameColumn

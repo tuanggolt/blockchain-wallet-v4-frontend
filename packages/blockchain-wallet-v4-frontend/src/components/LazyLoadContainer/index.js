@@ -13,11 +13,11 @@ const Container = styled.div`
 `
 
 class LazyLoadContainer extends React.PureComponent {
-  setWrapperRef = node => {
+  setWrapperRef = (node) => {
     this.wrapper = node
   }
 
-  setContainerRef = node => {
+  setContainerRef = (node) => {
     this.container = node
   }
 
@@ -35,6 +35,7 @@ class LazyLoadContainer extends React.PureComponent {
     return (
       <Wrapper
         className={className}
+        onWheel={this.onScroll}
         onScroll={this.onScroll}
         ref={this.setWrapperRef}
       >
@@ -47,8 +48,8 @@ class LazyLoadContainer extends React.PureComponent {
 }
 
 LazyLoadContainer.propTypes = {
-  triggerDistance: PropTypes.number,
-  onLazyLoad: PropTypes.func.isRequired
+  onLazyLoad: PropTypes.func.isRequired,
+  triggerDistance: PropTypes.number
 }
 
 LazyLoadContainer.defaultProps = {

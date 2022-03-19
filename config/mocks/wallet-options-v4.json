@@ -2,339 +2,58 @@
   "platforms": {
     "web": {
       "application": {
-        "analyticsSiteId": 2,
         "environment": "dev",
         "announcements": {
-          "lockbox": {},
           "public": {},
           "swap": {},
           "wallet": {}
         }
       },
-      "coins": {
-        "EUR": {
-          "availability": {
-            "send": false,
-            "request": false,
-            "deposit": true,
-            "withdrawal": true
-          },
-          "coinCode": "EUR",
-          "coinTicker": "EUR",
-          "displayName": "Euros",
-          "learnMoreLink": "",
-          "minConfirmations": 0,
-          "txListAppRoute": "/eur/transactions"
+      "coinListing": "",
+      "coinRename": "",
+      "sift": {
+        "apiKey": "0ecd212038"
+      },
+      "hotWalletAddresses": {
+        "swap": {
+          "eth": "0xC05f893248D843192A989AEE6dC26d21426E78AF"
         },
-        "GBP": {
-          "availability": {
-            "send": false,
-            "request": false,
-            "deposit": true,
-            "withdrawal": true
-          },
-          "coinCode": "GBP",
-          "coinTicker": "GBP",
-          "displayName": "Pounds",
-          "learnMoreLink": "",
-          "minConfirmations": 0,
-          "txListAppRoute": "/gbp/transactions"
+        "exchange": {
+          "eth": "0x95eFeFA0A4564BfABfBB1Ee08A359C062EB0A94b"
         },
-        "USD": {
-          "availability": {
-            "send": false,
-            "request": false,
-            "deposit": true,
-            "withdrawal": true
-          },
-          "coinCode": "USD",
-          "coinTicker": "USD",
-          "displayName": "U.S. Dollars",
-          "learnMoreLink": "",
-          "minConfirmations": 0,
-          "txListAppRoute": "/usd/transactions"
+        "simplebuy": {
+          "eth": "0xFF202CBC6C794516164E45621143acDe4a3FEa24"
         },
-        "BTC": {
-          "availability": {
-            "send": true,
-            "request": true,
-            "lockbox": true,
-            "exchangeTo": true,
-            "exchangeFrom": true,
-            "syncToPit": true
-          },
-          "coinCode": "BTC",
-          "coinTicker": "BTC",
-          "displayName": "Bitcoin",
-          "config": {
-            "network": "bitcoin"
-          },
-          "hasLockboxSupport": true,
-          "learnMoreLink": "https://www.blockchain.com/learning-portal/bitcoin-faq",
-          "minConfirmations": 3,
-          "txExplorerBaseUrl": "https://blockchain.com/btc/tx",
-          "txListAppRoute": "/btc/transactions"
+        "lending": {
+          "eth": "0xBA0145434A0a53E58D10680254756F679c359463"
         },
-        "ETH": {
-          "availability": {
-            "send": true,
-            "request": true,
-            "lockbox": true,
-            "exchangeTo": true,
-            "exchangeFrom": true,
-            "syncToPit": true
-          },
-          "coinCode": "ETH",
-          "coinTicker": "ETH",
-          "displayName": "Ether",
-          "config": {
-            "network": 1
-          },
-          "hasLockboxSupport": true,
-          "learnMoreLink": "https://support.blockchain.com/hc/en-us/sections/360000003163-Ethereum-FAQ",
-          "lastTxFuse": 600,
-          "minConfirmations": 12,
-          "txExplorerBaseUrl": "https://www.blockchain.com/eth/tx",
-          "txListAppRoute": "/eth/transactions"
-        },
-        "BCH": {
-          "availability": {
-            "send": true,
-            "request": true,
-            "lockbox": true,
-            "exchangeTo": true,
-            "exchangeFrom": true,
-            "syncToPit": true
-          },
-          "coinCode": "BCH",
-          "coinTicker": "BCH",
-          "displayName": "Bitcoin Cash",
-          "config": {},
-          "hasLockboxSupport": true,
-          "learnMoreLink": "https://support.blockchain.com/hc/en-us/sections/115001633403-Bitcoin-Cash-FAQ",
-          "minConfirmations": 3,
-          "txExplorerBaseUrl": "https://blockchain.com/bch/tx",
-          "txListAppRoute": "/bch/transactions"
-        },
-        "BSV": {
-          "availability": {
-            "send": false,
-            "request": false,
-            "lockbox": false,
-            "exchangeTo": false,
-            "exchangeFrom": true,
-            "syncToPit": false
-          },
-          "coinCode": "BSV",
-          "coinTicker": "BSV",
-          "displayName": "Bitcoin SV",
-          "config": {},
-          "hasLockboxSupport": false,
-          "minConfirmations": 3,
-          "txExplorerBaseUrl": "https://blockchair.com/bitcoin-sv/transaction"
-        },
-        "XLM": {
-          "airdrop": {
-            "link": "https://support.blockchain.com/hc/en-us/categories/360001126692-Crypto-Giveaway",
-            "image": "stellar-planet"
-          },
-          "availability": {
-            "send": true,
-            "request": true,
-            "lockbox": true,
-            "exchangeTo": true,
-            "exchangeFrom": true,
-            "syncToPit": true
-          },
-          "campaign": "sunriver",
-          "coinCode": "XLM",
-          "coinTicker": "XLM",
-          "config": {
-            "network": "public",
-            "sendTimeOutSeconds": 600
-          },
-          "displayName": "Stellar",
-          "exchangeAddresses": [
-            "GA4BYMUO5D7OLGVJWZ2D5FCWU7SB63FNZ4QUU574SMNA6ELK5TZD3SO3",
-            "GA5XIGA5C7QTPTWXQHY6MCJRMTRZDOSHR6EFIBNDQTCQHG262N4GGKTM",
-            "GABSZVZBYEO5F4V5LZKV7GR4SAJ5IKJGGOF43BIN42FNDUG7QPH6IMRQ",
-            "GAHK7EEG2WWHVKDNT4CEQFZGKF2LGDSW2IVM4S5DP42RBW3K6BTODB4A",
-            "GAW4E6NGM4NPNX2LO2BKDPCCTUX3FJLKWHPU4VQPGBIBQGD6JTVF5C7C",
-            "GAWPTHY6233GRWZZ7JXDMVXDUDCVQVVQ2SXCSTG3R3CNP5LQPDAHNBKL",
-            "GB3RMPTL47E4ULVANHBNCXSXM2ZA5JFY5ISDRERPCXNJUDEO73QFZUNK",
-            "GB6YPGW5JFMMP2QB2USQ33EUWTXVL4ZT5ITUNCY3YKVWOJPP57CANOF3",
-            "GB7GRJ5DTE3AA2TCVHQS2LAD3D7NFG7YLTOEWEBVRNUUI2Q3TJ5UQIFM",
-            "GBKTJSNUSR6OCXA5WDWGT33MNSCNQHOBQUBYC7TVS7BOXDKWFNHI4QNH",
-            "GBOEEVARKVASOQSSXCAHNTGJTVALJE2QM3AQQ2K3VXACQ6JJREQRJZKB",
-            "GBSTRH4QOTWNSVA6E4HFERETX4ZLSR3CIUBLK7AXYII277PFJC4BBYOG",
-            "GBSTRUSD7IRX73RQZBL3RQUH6KS3O4NYFY3QCALDLZD77XMZOPWAVTUK",
-            "GBTBVILDGCOIK26EPEHYCMKM7J5MTQ4FD5DO37GVTTBP45TVGRAROQHP",
-            "GBUQWP3BOUZX34TOND2QV7QQ7K7VJTG6VSE7WMLBTMDJLLAW7YKGU6EP",
-            "GBV4ZDEPNQ2FKSPKGJP2YKDAIZWQ2XKRQD4V4ACH3TCTFY6KPY3OAVS7",
-            "GBVOL67TMUQBGL4TZYNMY3ZQ5WGQYFPFD5VJRWXR72VA33VFNL225PL5",
-            "GBWZHAVWY23QKKDJW7TXLSIHY5EX4NIB37O4NMRKN2SKNWOSE5TEPCY3",
-            "GC4KAS6W2YCGJGLP633A6F6AKTCV4WSLMTMIQRSEQE5QRRVKSX7THV6S",
-            "GCGNWKCJ3KHRLPM3TM6N7D3W5YKDJFL6A2YCXFXNMRTZ4Q66MEMZ6FI2",
-            "GCLDH6L6FBLTD3H3B23D6TIFVVTFBLZMNBC3ZOI6FGI5GPQROL4FOXIN",
-            "GCNSGHUCG5VMGLT5RIYYZSO7VQULQKAJ62QA33DBC5PPBSO57LFWVV6P",
-            "GCO2IP3MJNUOKS4PUDI4C7LGGMQDJGXG3COYX3WSB4HHNAHKYV5YL3VC",
-            "GCVBUIXKKLH2DYHZRSLZUIZSVJUL74RTW6FVCCEYB2OE3RH7RVDBPCFG",
-            "GCXDR4QZ4OTVX6433DPTXELCSEWQ4E5BIPVRRJMUR6M3NT4JCVIDALZO",
-            "GDBCHKTHJUKDGSIQSTBUXFWVP3QVART5LED6KRZQ5X4Z5WLT4BGYXWCI",
-            "GDMXNQBJMS3FYI4PFSYCCB4XODQMNMTKPQ5HIKOUWBOWJ2P3CF6WASBE",
-            "GDRSWSKJCIB6Z65UA7W5RG62A7M5K3A5IHMED6DYHLPLWLVQCOOGDQ7S",
-            "GDU2FEL6THGGOFDHHP4I5FHNWY4S2SXYUBCEDB5ZREMD6UFRT4SYWSW2",
-            "GDZCEWJ5TVXUTFH6V5CVDQDE43KRXYUFRHKI7X64EWMVOVYYZJFWIFQ2",
-            "GDP34WXZRCSHVUDQLGKJKOBMS5LOQPHCIADZU5POEF3IICZ7XNQJ65Y6",
-            "GARAR5QR7WRL24MQMSO4INWV7C5SE4EE2YVXTLD6ORONYFHSUAGZYSLN",
-            "GCWYV4ZICBNDYJ3HE7GHPF3MJPIH63QNCWYPFTC5BQOIODUEI7HJBJVS",
-            "GDQP2KPQGKIHYJGXNUIYOMHARUARCA7DJT5FO2FFOOKY3B2WSQHG4W37",
-            "GBQ6RTEHEHXFPKSWCIM4KSVQXBANLFMVV6FJIZDLTF3ZOGFHTBDZUYDD"
-          ],
-          "hasLockboxSupport": true,
-          "learnMoreLink": "https://support.blockchain.com/hc/en-us/articles/360019105171-What-is-Stellar-",
-          "minConfirmations": 1,
-          "txExplorerBaseUrl": "https://stellarchain.io/tx",
-          "txListAppRoute": "/xlm/transactions"
-        },
-        "ALGO": {
-          "availability": {
-            "send": false,
-            "request": false,
-            "lockbox": false,
-            "exchangeTo": false,
-            "exchangeFrom": false,
-            "syncToPit": false
-          },
-          "coinCode": "ALGO",
-          "coinTicker": "ALGO",
-          "displayName": "Algorand",
-          "hasLockboxSupport": false,
-          "learnMoreLink": "",
-          "minConfirmations": 3,
-          "txExplorerBaseUrl": "",
-          "txListAppRoute": "/algo/transactions"
-        },
-        "PAX": {
-          "availability": {
-            "send": true,
-            "request": true,
-            "lockbox": false,
-            "exchangeTo": true,
-            "exchangeFrom": true,
-            "syncToPit": true
-          },
-          "coinCode": "PAX",
-          "coinTicker": "USD-D",
-          "contractAddress": "0x8e870d67f660d95d5be530380d0ec0bd388289e1",
-          "displayName": "USD Digital",
-          "hasLockboxSupport": false,
-          "learnMoreLink": "https://support.blockchain.com/hc/en-us/sections/360004368351-USD-Digital-previously-USD-PAX-FAQ",
-          "minConfirmations": 12,
-          "txExplorerBaseUrl": "https://www.blockchain.com/eth/tx",
-          "txListAppRoute": "/usd-d/transactions"
-        },
-        "USDT": {
-          "availability": {
-            "send": true,
-            "request": true,
-            "lockbox": false,
-            "exchangeTo": true,
-            "exchangeFrom": true,
-            "syncToPit": true
-          },
-          "coinCode": "USDT",
-          "coinTicker": "USDT",
-          "contractAddress": "0xdac17f958d2ee523a2206206994597c13d831ec7",
-          "displayName": "Tether",
-          "hasLockboxSupport": false,
-          "learnMoreLink": " https://support.blockchain.com/hc/en-us/articles/360044952032",
-          "minConfirmations": 12,
-          "txExplorerBaseUrl": "https://www.blockchain.com/eth/tx",
-          "txListAppRoute": "/usdt/transactions"
-        },
-        "WDGLD": {
-          "availability": {
-            "send": true,
-            "request": true,
-            "lockbox": false,
-            "exchangeTo": true,
-            "exchangeFrom": true,
-            "syncToPit": true
-          },
-          "coinCode": "WDGLD",
-          "coinTicker": "WDGLD",
-          "contractAddress": "0x123151402076fc819B7564510989e475c9cD93CA",
-          "displayName": "Wrapped-DGLD",
-          "hasLockboxSupport": false,
-          "learnMoreLink": "https://support.blockchain.com/hc/en-us/articles/360052952171",
-          "minConfirmations": 12,
-          "txExplorerBaseUrl": "https://www.blockchain.com/eth/tx",
-          "txListAppRoute": "/wdgld/transactions"
-        },
-        "AAVE": {
-          "availability": {
-            "send": true,
-            "request": true,
-            "lockbox": false,
-            "exchangeTo": true,
-            "exchangeFrom": true,
-            "syncToPit": true
-          },
-          "coinCode": "AAVE",
-          "coinTicker": "AAVE",
-          "contractAddress": "0x7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9",
-          "displayName": "Aave",
-          "hasLockboxSupport": false,
-          "learnMoreLink": "https://support.blockchain.com/hc/en-us/articles/360044952032",
-          "minConfirmations": 12,
-          "txExplorerBaseUrl": "https://www.blockchain.com/eth/tx",
-          "txListAppRoute": "/aave/transactions"
-        },
-        "YFI": {
-          "availability": {
-            "send": true,
-            "request": true,
-            "lockbox": false,
-            "exchangeTo": true,
-            "exchangeFrom": true,
-            "syncToPit": true
-          },
-          "coinCode": "YFI",
-          "coinTicker": "YFI",
-          "contractAddress": "0x0bc529c00C6401aEF6D220BE8C6Ea1667F6Ad93e",
-          "displayName": "Yearn Finance",
-          "hasLockboxSupport": false,
-          "learnMoreLink": "https://support.blockchain.com/hc/en-us/articles/360044952032",
-          "minConfirmations": 12,
-          "txExplorerBaseUrl": "https://www.blockchain.com/eth/tx",
-          "txListAppRoute": "/yfi/transactions"
-        },
-        "DOT": {
-          "availability": {
-            "send": false,
-            "request": false,
-            "lockbox": false,
-            "exchangeTo": true,
-            "exchangeFrom": true,
-            "syncToPit": false
-          },
-          "coinCode": "DOT",
-          "coinTicker": "DOT",
-          "displayName": "Polkadot",
-          "hasLockboxSupport": false,
-          "learnMoreLink": "https://support.blockchain.com/hc/en-us/articles/360044952032",
-          "minConfirmations": 20,
-          "txExplorerBaseUrl": "https://polkascan.io/polkadot",
-          "txListAppRoute": "/dot/transactions"
+        "rewards": {
+          "eth": "0x7d9d70c1A99FcC952d48b781947FAa0a3795083E"
         }
       },
-      "sift": {
-        "apiKey": "0ecd212038",
-        "paymentKey": "4a0510ff14"
-      }, 
-      "mobile_auth": {
-        "enabled": true
+      "featureFlags": {
+        "applePayPaymentMethod": false,
+        "addCheckoutPaymentProvider": true,
+        "addStripePaymentProvider": false,
+        "cEURRewards": true,
+        "completeYourProfile": true,
+        "developerMobilePairing": true,
+        "mergeAndUpgrade": false,
+        "eddInterestFileUpload": true,
+        "flexiblePricingModel": true,
+        "institutionalPortal": true,
+        "isRedesignEnabled": true,
+        "recurringBuys": true,
+        "refreshCaptchaWithSignupError": true,
+        "showTermsAndConditions": true,
+        "signupCountry": true,
+        "silverRevamp": true,
+        "taxCenter": true,
+        "tradingCurrencyFlyout": true,
+        "useNewPaymentProviders": true,
+        "walletConnect": true,
+        "walletDebitCardEnabled": true,
+        "withdrawalLocksFundsOnHold": true
       }
     }
   },
@@ -348,10 +67,10 @@
     "horizon": "https://horizon.stellar.org",
     "ledger": "https://manager.api.live.ledger.com",
     "ledgerSocket": "wss://api.ledgerwallet.com",
+    "opensea": "https://api.opensea.io",
     "root": "https://blockchain.info",
     "veriff": "https://magic.veriff.me",
     "walletHelper": "https://wallet-helper.blockchain.com",
-    "webSocket": "wss://ws.blockchain.info",
-    "yapilyCallbackUrl": "https://staging.blockchain.com/brokerage-link-success"
+    "webSocket": "wss://ws.blockchain.info"
   }
 }

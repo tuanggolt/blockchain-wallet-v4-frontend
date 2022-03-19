@@ -1,4 +1,4 @@
-import { WalletFiatType } from 'blockchain-wallet-v4/src/types'
+import { WalletFiatType } from '@core/types'
 
 export const DEFAULT_METHODS = {
   currency: 'EUR' as WalletFiatType,
@@ -6,6 +6,6 @@ export const DEFAULT_METHODS = {
 }
 
 export const POLLING = {
-  SECONDS: 10,
-  RETRY_AMOUNT: 30
+  RETRY_AMOUNT: 30,
+  SECONDS: 10
 }

@@ -2,6 +2,10 @@ import styled from 'styled-components'
 
 import { media } from 'services/styles'
 
+import SavedRecurringBuy from './SavedRecurringBuy'
+
+export { SavedRecurringBuy }
+
 export const Container = styled.div`
   display: flex;
   > div {
@@ -24,6 +28,6 @@ export const Box = styled.div`
   position: relative;
   padding: 24px;
   border-radius: 8px;
-  border: 1px solid ${props => props.theme.grey000};
+  border: 1px solid ${(props) => props.theme.grey000};
   width: 280px;
 `

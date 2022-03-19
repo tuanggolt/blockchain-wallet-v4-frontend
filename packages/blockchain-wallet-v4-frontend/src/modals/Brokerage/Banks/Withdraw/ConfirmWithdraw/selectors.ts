@@ -1,6 +1,6 @@
 import { lift } from 'ramda'
 
-import { ExtractSuccess } from 'blockchain-wallet-v4/src/types'
+import { ExtractSuccess } from '@core/types'
 import { selectors } from 'data'
 import { RootState } from 'data/rootReducer'
 import { BankTransferAccountType } from 'data/types'
@@ -8,18 +8,13 @@ import { BankTransferAccountType } from 'data/types'
 import { OwnProps } from '.'
 
 export const getData = (state: RootState, ownProps: OwnProps) => {
-  const feesR = selectors.components.withdraw.getFeeForCurrency(
-    state,
-    ownProps.fiatCurrency
-  )
+  const feesR = selectors.components.withdraw.getFeeForCurrency(state, ownProps.fiatCurrency)
 
   const defaultBeneficiaryR = selectors.custodial.getDefaultBeneficiary(
     ownProps.fiatCurrency,
     state
   )
-  let defaultMethodR = selectors.components.brokerage.getAccount(
-    state
-  ) as BankTransferAccountType
+  const defaultMethodR = selectors.components.brokerage.getAccount(state) as BankTransferAccountType
 
   return lift(
     (
@@ -27,8 +22,8 @@ export const getData = (state: RootState, ownProps: OwnProps) => {
       fees: ExtractSuccess<typeof feesR>
     ) => ({
       defaultBeneficiary,
-      fees,
-      defaultMethod: defaultMethodR
+      defaultMethod: defaultMethodR,
+      fees
     })
   )(defaultBeneficiaryR, feesR)
 }

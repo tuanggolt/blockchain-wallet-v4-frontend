@@ -3,8 +3,8 @@ import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
 import { formValueSelector } from 'redux-form'
 
-import { Remote } from 'blockchain-wallet-v4/src'
-import { fromCashAddr } from 'blockchain-wallet-v4/src/utils/bch'
+import { Remote } from '@core'
+import { fromCashAddr } from '@core/utils/bch'
 import { actions, model } from 'data'
 
 import { getData } from './selectors'
@@ -19,12 +19,12 @@ class ImportedAddressesContainer extends React.Component {
 
   handleTransferAll = () => {
     this.props.actions.showModal(model.components.sendBch.MODAL, {
-      from: 'allImportedAddresses',
-      excludeHDWallets: true
+      excludeHDWallets: true,
+      from: 'allImportedAddresses'
     })
   }
 
-  handleEditLabel = address => {
+  handleEditLabel = (address) => {
     const btcAddr = fromCashAddr(address.addr)
     this.props.componentActions.editImportedAddressLabel(btcAddr)
   }
@@ -32,7 +32,10 @@ class ImportedAddressesContainer extends React.Component {
   render() {
     const { data, ...rest } = this.props
     return data.cata({
-      Success: addresses => {
+      Failure: (message) => <div>{message}</div>,
+      Loading: () => <div />,
+      NotAsked: () => <div />,
+      Success: (addresses) => {
         return addresses.length ? (
           <BchImportedAddresses
             importedAddresses={addresses}
@@ -43,29 +46,20 @@ class ImportedAddressesContainer extends React.Component {
         ) : (
           <div />
         )
-      },
-      Failure: message => <div>{message}</div>,
-      Loading: () => <div />,
-      NotAsked: () => <div />
+      }
     })
   }
 }
 
-const mapDispatchToProps = dispatch => ({
+const mapDispatchToProps = (dispatch) => ({
   actions: bindActionCreators(actions.modals, dispatch),
-  modalActions: bindActionCreators(actions.modals, dispatch),
-  componentActions: bindActionCreators(
-    actions.components.manageAddresses,
-    dispatch
-  )
+  componentActions: bindActionCreators(actions.components.manageAddresses, dispatch),
+  modalActions: bindActionCreators(actions.modals, dispatch)
 })
 
-const mapStateToProps = state => ({
+const mapStateToProps = (state) => ({
   data: getData(state),
   search: formValueSelector(WALLET_TX_SEARCH)(state, 'search')
 })
 
-export default connect(
-  mapStateToProps,
-  mapDispatchToProps
-)(ImportedAddressesContainer)
+export default connect(mapStateToProps, mapDispatchToProps)(ImportedAddressesContainer)

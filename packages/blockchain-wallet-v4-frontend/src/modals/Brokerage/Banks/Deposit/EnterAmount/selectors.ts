@@ -1,43 +1,40 @@
 import { lift } from 'ramda'
 
-import {
-  ExtractSuccess,
-  SupportedWalletCurrenciesType
-} from 'blockchain-wallet-v4/src/types'
+import { BSPaymentTypes, CrossBorderLimits, ExtractSuccess } from '@core/types'
 import { selectors } from 'data'
+import { RootState } from 'data/rootReducer'
+import { BankTransferAccountType } from 'data/types'
 
-export const getData = state => {
-  const bankTransferAccountsR = selectors.components.brokerage.getBankTransferAccounts(
-    state
-  )
+const getData = (state: RootState) => {
+  const bankTransferAccountsR = selectors.components.brokerage.getBankTransferAccounts(state)
+  const bankTransferAccounts = bankTransferAccountsR.getOrElse([] as BankTransferAccountType[])
   const defaultMethodR = selectors.components.brokerage.getAccount(state)
-  const eligibilityR = selectors.components.simpleBuy.getSBFiatEligible(state)
-  const paymentMethodsR = selectors.components.simpleBuy.getSBPaymentMethods(
-    state
-  )
-  const depositLimitsR = selectors.components.simpleBuy.getUserLimit(
+  const eligibilityR = selectors.components.buySell.getBSFiatEligible(state)
+  const paymentMethodsR = selectors.components.buySell.getBSPaymentMethods(state)
+  const depositLimitsR = selectors.components.buySell.getUserLimit(
     state,
-    'BANK_TRANSFER'
+    BSPaymentTypes.BANK_TRANSFER
   )
-  const formErrors = selectors.form.getFormSyncErrors('brokerageTx')(state)
-  const supportedCoinsR = selectors.core.walletOptions.getSupportedCoins(state)
-  const supportedCoins = supportedCoinsR.getOrElse(
-    {} as SupportedWalletCurrenciesType
-  )
+  const crossBorderLimits = selectors.components.brokerage
+    .getCrossBorderLimits(state)
+    .getOrElse({} as CrossBorderLimits)
+
+  const formErrors = selectors.form.getFormAsyncErrors('brokerageTx')(state)
   return lift(
     (
-      bankTransferAccounts: ExtractSuccess<typeof bankTransferAccountsR>,
       depositLimits: ExtractSuccess<typeof depositLimitsR>,
       eligibility: ExtractSuccess<typeof eligibilityR>,
       paymentMethods: ExtractSuccess<typeof paymentMethodsR>
     ) => ({
       bankTransferAccounts,
-      depositLimits,
+      crossBorderLimits,
       defaultMethod: defaultMethodR,
+      depositLimits,
       eligibility,
-      paymentMethods,
-      supportedCoins,
-      formErrors
+      formErrors,
+      paymentMethods
     })
-  )(bankTransferAccountsR, depositLimitsR, eligibilityR, paymentMethodsR)
+  )(depositLimitsR, eligibilityR, paymentMethodsR)
 }
+
+export default getData

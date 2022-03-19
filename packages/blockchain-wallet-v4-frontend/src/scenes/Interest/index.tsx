@@ -5,18 +5,12 @@ import { LinkContainer } from 'react-router-bootstrap'
 import { bindActionCreators, Dispatch } from 'redux'
 import styled from 'styled-components'
 
+import { Remote } from '@core'
+import { CoinType, InterestEDDStatus, InterestRateType, RemoteDataType } from '@core/types'
 import { SkeletonRectangle, TabMenu, TabMenuItem, Text } from 'blockchain-info-components'
-import { Remote } from 'blockchain-wallet-v4/src'
-import {
-  CoinType,
-  InterestEDDStatus,
-  InterestRateType,
-  RemoteDataType,
-  SupportedWalletCurrenciesType,
-} from 'blockchain-wallet-v4/src/types'
 import { Container } from 'components/Box'
 import { SceneWrapper } from 'components/Layout'
-import { actions } from 'data'
+import { actions, selectors } from 'data'
 import { UserDataType } from 'data/types'
 
 import IneligibilityCard from './IneligibilityCard'
@@ -58,7 +52,7 @@ class Interest extends React.PureComponent<Props, StateType> {
 
   checkUserData = () => {
     const data = this.props.data.getOrElse({
-      userData: { tiers: { current: 0 } } as UserDataType,
+      userData: { tiers: { current: 0 } } as UserDataType
     } as SuccessStateType)
     const tier = data.userData.tiers ? data.userData.tiers.current : 0
     const isGoldTier = tier >= 2
@@ -74,12 +68,12 @@ class Interest extends React.PureComponent<Props, StateType> {
         {isGoldTier && (
           <TabRow>
             <TabMenu>
-              <LinkContainer to='/interest' exact>
+              <LinkContainer to='/rewards' exact>
                 <TabMenuItem data-e2e='interestTabMenuAccounts'>
                   <FormattedMessage id='scenes.interest.tab.accounts' defaultMessage='Accounts' />
                 </TabMenuItem>
               </LinkContainer>
-              <LinkContainer to='/interest/history'>
+              <LinkContainer to='/rewards/history'>
                 <TabMenuItem data-e2e='interestTabMenuHistory'>
                   <FormattedMessage
                     id='scenes.interest.tab.history'
@@ -103,8 +97,8 @@ class Interest extends React.PureComponent<Props, StateType> {
               <ContainerStyled>
                 <IntroCard {...val} {...this.props} isGoldTier={isGoldTier} />
                 {isGoldTier &&
-                  val.instruments.map((instrument) => {
-                    return (
+                  val.sortedInstruments.map((instrument) => {
+                    return window.coins[instrument] ? (
                       <SummaryCard
                         {...val}
                         {...this.props}
@@ -112,12 +106,12 @@ class Interest extends React.PureComponent<Props, StateType> {
                         coin={instrument}
                         key={instrument}
                       />
-                    )
+                    ) : null
                   })}
               </ContainerStyled>
               <IneligibilityCard {...val} {...this.props} />
             </>
-          ),
+          )
         })}
       </SceneWrapper>
     )
@@ -125,12 +119,12 @@ class Interest extends React.PureComponent<Props, StateType> {
 }
 
 const mapStateToProps = (state): LinkStatePropsType => ({
-  data: getData(state),
+  data: getData(state)
 })
 
 const mapDispatchToProps = (dispatch: Dispatch): LinkDispatchPropsType => ({
   idvActions: bindActionCreators(actions.components.identityVerification, dispatch),
-  interestActions: bindActionCreators(actions.components.interest, dispatch),
+  interestActions: bindActionCreators(actions.components.interest, dispatch)
 })
 
 const connector = connect(mapStateToProps, mapDispatchToProps)
@@ -139,11 +133,10 @@ export type StateType = {
   isGoldTier: boolean
 }
 export type SuccessStateType = {
-  instruments: Array<CoinType>
   interestEDDStatus: InterestEDDStatus
   interestRate: InterestRateType
   interestRateArray: Array<number>
-  supportedCoins: SupportedWalletCurrenciesType
+  sortedInstruments: Array<CoinType>
   userData: UserDataType
 }
 type LinkStatePropsType = {

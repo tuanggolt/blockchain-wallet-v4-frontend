@@ -7,13 +7,18 @@ import { actions, selectors } from 'data'
 import { RootState } from 'data/rootReducer'
 import { UserDataType } from 'data/types'
 
+import BSOrderBanner from './BSOrderBanner'
 import BuyCrypto from './BuyCrypto'
+import CeloEURRewards from './CeloEURRewards'
+import CoinRename from './CoinRename'
+import CompleteYourProfile from './CompleteYourProfile'
 import ContinueToGold from './ContinueToGold'
 import FinishKyc from './FinishKyc'
 import KycResubmit from './KycResubmit'
 import NewCurrency from './NewCurrency'
-import SBOrderBanner from './SBOrderBanner'
+import RecurringBuys from './RecurringBuys'
 import { getData } from './selectors'
+import ServicePriceUnavailable from './ServicePriceUnavailable'
 
 const BannerWrapper = styled.div`
   margin-bottom: 25px;
@@ -21,11 +26,15 @@ const BannerWrapper = styled.div`
 
 class Banners extends React.PureComponent<Props> {
   componentDidMount() {
-    this.props.simpleBuyActions.fetchSBOrders()
-    this.props.simpleBuyActions.fetchSDDEligible()
+    this.props.buySellActions.fetchOrders()
+    this.props.buySellActions.fetchSDDEligibility()
     if (this.props.userData.tiers?.current > 0) {
-      // TODO move this away from SB
-      this.props.simpleBuyActions.fetchLimits(this.props.fiatCurrency)
+      // we need such to distinguish is profile completed
+      this.props.buySellActions.fetchCards(false)
+      this.props.buySellActions.fetchPaymentMethods(this.props.fiatCurrency)
+      this.props.buySellActions.fetchBalance({ skipLoading: true })
+      // TODO move this away from BS
+      this.props.buySellActions.fetchLimits(this.props.fiatCurrency)
     }
   }
 
@@ -45,10 +54,22 @@ class Banners extends React.PureComponent<Props> {
             <FinishKyc />
           </BannerWrapper>
         )
+      case 'servicePriceUnavailable':
+        return (
+          <BannerWrapper>
+            <ServicePriceUnavailable />
+          </BannerWrapper>
+        )
       case 'sbOrder':
         return (
           <BannerWrapper>
-            <SBOrderBanner />
+            <BSOrderBanner />
+          </BannerWrapper>
+        )
+      case 'coinRename':
+        return (
+          <BannerWrapper>
+            <CoinRename />
           </BannerWrapper>
         )
       case 'newCurrency':
@@ -69,6 +90,24 @@ class Banners extends React.PureComponent<Props> {
             <ContinueToGold />
           </BannerWrapper>
         )
+      case 'celoEURRewards':
+        return (
+          <BannerWrapper>
+            <CeloEURRewards />
+          </BannerWrapper>
+        )
+      case 'completeYourProfile':
+        return (
+          <BannerWrapper>
+            <CompleteYourProfile />
+          </BannerWrapper>
+        )
+      case 'recurringBuys':
+        return (
+          <BannerWrapper>
+            <RecurringBuys />
+          </BannerWrapper>
+        )
       default:
         return null
     }
@@ -76,15 +115,15 @@ class Banners extends React.PureComponent<Props> {
 }
 
 const mapStateToProps = (state: RootState) => ({
+  data: getData(state),
   fiatCurrency: selectors.core.settings.getCurrency(state).getOrElse('USD'),
   userData: selectors.modules.profile.getUserData(state).getOrElse({
     tiers: { current: 0 }
-  } as UserDataType),
-  data: getData(state)
+  } as UserDataType)
 })
 
 const mapDispatchToProps = (dispatch: Dispatch) => ({
-  simpleBuyActions: bindActionCreators(actions.components.simpleBuy, dispatch)
+  buySellActions: bindActionCreators(actions.components.buySell, dispatch)
 })
 
 const connector = connect(mapStateToProps, mapDispatchToProps)

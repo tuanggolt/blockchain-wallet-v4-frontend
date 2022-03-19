@@ -1,15 +1,24 @@
-import { NabuAddressType, RemoteDataType } from 'blockchain-wallet-v4/src/types'
+import { NabuAddressType, RemoteDataType } from '@core/types'
 
 import * as AT from './actionTypes'
 
 export type EmailSmsStepType = 'edit' | 'verify'
 
-export type StepsType =
-  | 'personal'
-  | 'moreInfo'
-  | 'mobile'
-  | 'verify'
-  | 'submitted'
+export type VerifyIdentityOriginType =
+  | 'DashboardPromo'
+  | 'CompleteProfile'
+  | 'Unknown'
+  | 'Swap'
+  | 'Send'
+  | 'Goals'
+  | 'AccountReset'
+  | 'Resubmission'
+  | 'Onboarding'
+  | 'Settings'
+  | 'BuySell'
+  | 'Interest'
+
+export type StepsType = 'personal' | 'moreInfo' | 'mobile' | 'verify' | 'submitted'
 
 export type KycStatesType =
   | 'NONE'
@@ -214,6 +223,7 @@ interface VerifyIdentityAction {
     checkSddEligibility?: boolean
     needMoreInfo?: boolean
     onCompletionCallback?: () => void
+    origin: VerifyIdentityOriginType
     tier: number
   }
   type: typeof AT.VERIFY_IDENTITY

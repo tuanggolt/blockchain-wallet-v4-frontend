@@ -1,16 +1,16 @@
 import { lift } from 'ramda'
 
-import { ExtractSuccess } from 'blockchain-wallet-v4/src/types'
+import { ExtractSuccess } from '@core/types'
 import { selectors } from 'data'
 
-export const getData = state => {
-  const withdrawLockCheckR = selectors.components.send.getWithdrawLockCheckRule(
-    state
-  )
+const getData = (state) => {
+  const withdrawalLocksR = selectors.components.withdraw.getWithdrawalLocks(state)
+  const onHold = selectors.core.walletOptions.getWithdrawalLocksFundsOnHold(state).getOrElse(false)
 
-  return lift(
-    (withdrawLockCheck: ExtractSuccess<typeof withdrawLockCheckR>) => ({
-      withdrawLockCheck
-    })
-  )(withdrawLockCheckR)
+  return lift((withdrawalLocks: ExtractSuccess<typeof withdrawalLocksR>) => ({
+    onHold,
+    withdrawalLocks
+  }))(withdrawalLocksR)
 }
+
+export default getData

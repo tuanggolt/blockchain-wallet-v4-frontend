@@ -1,4 +1,4 @@
-import { CoinType, Erc20CoinType } from 'core/types'
+import { CoinType } from '@core/types'
 
 import { UTXOType } from './btc/types'
 import { ADDRESS_TYPES } from './btc/utils'
@@ -65,6 +65,7 @@ type XlmPaymentValue = IPaymentValue & {
   coin: 'XLM'
   description?: string
   fee?: number
+  memo?: string
   to?: XlmAccountFromType | XlmAddressFromType
   txId?: string
 }
@@ -80,10 +81,7 @@ type IPaymentType = {
   ) => PaymentType
   publish: () => PaymentType
   sign: (pw: string) => PaymentType
-  to: (
-    addressOrIndex: string | number,
-    addressType?: AddressTypesType
-  ) => PaymentType
+  to: (addressOrIndex: string | number, addressType?: AddressTypesType) => PaymentType
 }
 
 export type BchPaymentType = IPaymentType & {
@@ -104,13 +102,11 @@ export type BtcPaymentType = IPaymentType & {
 
 export type EthPaymentType = IPaymentType & {
   amount: (n: number | string) => EthPaymentType
-  coin: 'ETH' | 'PAX' | 'USDT' | 'WDGLD' | 'YFI' | 'AAVE'
+  coin: 'ETH' | string
+  data?: string
   description: (arg: string) => EthPaymentType
-  fee: (arg: number, account: string) => EthPaymentType
-  init: (arg: {
-    coin: 'ETH' | Erc20CoinType
-    isErc20?: boolean
-  }) => EthPaymentType
+  fee: (arg: number, account: string, coin?: string) => EthPaymentType
+  init: (arg: { coin: 'ETH' | string; isErc20?: boolean }) => EthPaymentType
   setIsRetryAttempt: (
     isRetryAttempt: boolean,
     nonce: string,
@@ -124,17 +120,19 @@ export type XlmPaymentType = IPaymentType & {
   amount: (n: number | string) => XlmPaymentType
   coin: 'XLM'
   description: (arg: string) => XlmPaymentType
+  fee: (arg: string) => XlmPaymentType
   memo: (arg: string) => XlmPaymentType
   memoType: (arg: string) => XlmPaymentType
   value: () => XlmPaymentValue
 }
 
-export type PaymentType =
-  | BchPaymentType
-  | BtcPaymentType
-  | EthPaymentType
-  | XlmPaymentType
+export type PaymentType = BchPaymentType | BtcPaymentType | EthPaymentType | XlmPaymentType
 
 export type PaymentValue = BtcPaymentValue | EthPaymentValue | XlmPaymentValue
 
 export * from './btc/types'
+
+export enum Product {
+  REWARDS = 'rewards',
+  SWAP = 'swap'
+}

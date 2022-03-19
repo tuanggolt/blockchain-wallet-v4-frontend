@@ -2,67 +2,50 @@ import React, { ReactElement } from 'react'
 import { FormattedMessage } from 'react-intl'
 import styled from 'styled-components'
 
+import { BSPaymentMethodsType, BSPaymentMethodType, BSPaymentTypes } from '@core/types'
 import { Icon, Image, Text } from 'blockchain-info-components'
-import {
-  SBPaymentMethodsType,
-  SBPaymentMethodType
-} from 'blockchain-wallet-v4/src/types'
 import { FlyoutWrapper } from 'components/Flyout'
-import { model } from 'data'
-import {
-  AddBankStepType,
-  BankDWStepType,
-  BrokerageModalOriginType
-} from 'data/types'
+import { AddBankStepType, BankDWStepType, BrokerageModalOriginType } from 'data/types'
 
 // TODO: move to somewhere more generic
-import BankWire from '../../../../SimpleBuy/PaymentMethods/Methods/BankWire'
+import BankWire from '../../../../BuySell/PaymentMethods/Methods/BankWire'
 import { mapDispatchToProps, Props as _P } from '.'
 import BankDeposit from './BankDeposit'
-
-const {
-  LINK_BANK_TRANSFER,
-  LINK_WIRE_TRANSFER
-} = model.analytics.FIAT_DEPOSIT_EVENTS
 
 const Wrapper = styled.section`
   display: flex;
   justify-content: space-between;
   flex-direction: column;
 `
-
 const WrapperHeader = styled(FlyoutWrapper)`
   height: unset;
 `
-
 const TopText = styled(Text)`
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 7px;
 `
-
 const MethodList = styled.section`
-  border-top: 1px solid ${props => props.theme.grey000};
+  border-top: 1px solid ${(props) => props.theme.grey000};
 `
-
 const IconContainer = styled.div`
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background-color: ${props => props.theme.blue000};
+  background-color: ${(props) => props.theme.blue000};
   display: flex;
   align-items: center;
   justify-content: center;
 `
 
-const getIcon = (value: SBPaymentMethodType): ReactElement => {
+const getIcon = (value: BSPaymentMethodType): ReactElement => {
   switch (value.type) {
-    case 'BANK_TRANSFER':
-    case 'LINK_BANK':
+    case BSPaymentTypes.BANK_TRANSFER:
+    case BSPaymentTypes.LINK_BANK:
     default:
       return <Image name='bank' height='48px' />
-    case 'BANK_ACCOUNT':
+    case BSPaymentTypes.BANK_ACCOUNT:
       return (
         <IconContainer>
           <Icon size='18px' color='blue600' name='arrow-down' />
@@ -71,48 +54,34 @@ const getIcon = (value: SBPaymentMethodType): ReactElement => {
   }
 }
 
-const getType = (value: SBPaymentMethodType) => {
+const getType = (value: BSPaymentMethodType) => {
   switch (value.type) {
-    case 'BANK_TRANSFER':
-    case 'LINK_BANK':
+    case BSPaymentTypes.BANK_TRANSFER:
+    case BSPaymentTypes.LINK_BANK:
     default:
       return (
         <FormattedMessage
-          id='modals.simplebuy.banklink'
-          defaultMessage='Link a Bank'
+          id='modals.simplebuy.easybanktransfer'
+          defaultMessage='Easy Bank Transfer'
         />
       )
-    case 'BANK_ACCOUNT':
+    case BSPaymentTypes.BANK_ACCOUNT:
       let text
       if (value.currency === 'EUR' || value.currency === 'GBP') {
-        text = (
-          <FormattedMessage id='buttons.transfer' defaultMessage='Transfer' />
-        )
+        text = <FormattedMessage id='buttons.transfer' defaultMessage='Regular Bank Transfer' />
       } else {
-        text = (
-          <FormattedMessage
-            id='modals.simplebuy.bankwire'
-            defaultMessage='Wire Transfer'
-          />
-        )
+        text = <FormattedMessage id='modals.simplebuy.bankwire' defaultMessage='Wire Transfer' />
       }
       return text
   }
 }
 
-const Success = ({
-  addNew,
-  analyticsActions,
-  brokerageActions,
-  close,
-  fiatCurrency,
-  paymentMethods
-}: Props) => {
+const Success = ({ addNew, brokerageActions, close, fiatCurrency, paymentMethods }: Props) => {
   const bankTransfer = paymentMethods.methods.find(
-    method => method.type === 'BANK_TRANSFER'
+    (method) => method.type === BSPaymentTypes.BANK_TRANSFER
   )
   const bankWire = paymentMethods.methods.find(
-    method => method.type === 'BANK_ACCOUNT'
+    (method) => method.type === BSPaymentTypes.BANK_ACCOUNT
   )
 
   return (
@@ -148,12 +117,11 @@ const Success = ({
                  modal else I want to go to the enter amount screen
               */
               if (addNew) {
-                brokerageActions.showModal(
-                  BrokerageModalOriginType.ADD_BANK,
-                  fiatCurrency === 'USD'
-                    ? 'ADD_BANK_YODLEE_MODAL'
-                    : 'ADD_BANK_YAPILY_MODAL'
-                )
+                brokerageActions.showModal({
+                  modalType:
+                    fiatCurrency === 'USD' ? 'ADD_BANK_YODLEE_MODAL' : 'ADD_BANK_YAPILY_MODAL',
+                  origin: BrokerageModalOriginType.ADD_BANK_DEPOSIT
+                })
                 brokerageActions.setAddBankStep({
                   addBankStep: AddBankStepType.ADD_BANK
                 })
@@ -165,9 +133,7 @@ const Success = ({
                   dwStep: BankDWStepType.ENTER_AMOUNT
                 })
               }
-              analyticsActions.logEvent(LINK_BANK_TRANSFER)
             }}
-            text={getType(bankTransfer)}
             value={bankTransfer}
           />
         )}
@@ -178,7 +144,6 @@ const Success = ({
               brokerageActions.setDWStep({
                 dwStep: BankDWStepType.WIRE_INSTRUCTIONS
               })
-              analyticsActions.logEvent(LINK_WIRE_TRANSFER)
             }}
             text={getType(bankWire)}
             value={bankWire}
@@ -191,7 +156,7 @@ const Success = ({
 
 type Props = {
   close: () => void
-  paymentMethods: SBPaymentMethodsType
+  paymentMethods: BSPaymentMethodsType
 } & ReturnType<typeof mapDispatchToProps> &
   _P
 

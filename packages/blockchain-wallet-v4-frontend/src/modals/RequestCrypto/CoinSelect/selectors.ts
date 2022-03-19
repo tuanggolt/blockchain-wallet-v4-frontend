@@ -1,17 +1,16 @@
-import BitcoinCash from 'bitcoinforksjs-lib'
-import * as Bitcoin from 'bitcoinjs-lib'
 import { map } from 'ramda'
 
-import { utils } from 'blockchain-wallet-v4/src'
-import { ADDRESS_TYPES } from 'blockchain-wallet-v4/src/redux/payment/btc/utils'
-import { createDeepEqualSelector } from 'blockchain-wallet-v4/src/utils'
+import { CoinfigType } from '@core/types'
+import { createDeepEqualSelector } from '@core/utils'
+import { getCoinsSortedByBalance } from 'components/Balances/selectors'
 import { selectors } from 'data'
 import { REQUEST_ACCOUNTS_SELECTOR } from 'data/coins/model/request'
 import { getCoinAccounts } from 'data/coins/selectors'
 import { CoinAccountSelectorType } from 'data/coins/types'
-import { SwapAccountType } from 'data/components/swap/types'
+import { SwapAccountType, SwapBaseCounterTypes } from 'data/components/swap/types'
+import { levenshteinDistanceSearch } from 'services/search'
 
-const { isCashAddr, toCashAddr } = utils.bch
+import { REQUEST_FORM } from '../model'
 
 export const getData = createDeepEqualSelector(
   [
@@ -20,65 +19,66 @@ export const getData = createDeepEqualSelector(
         coins: ownProps.requestableCoins,
         ...REQUEST_ACCOUNTS_SELECTOR
       } as CoinAccountSelectorType),
-    selectors.core.walletOptions.getAllCoinAvailabilities,
-    selectors.core.walletOptions.getBtcNetwork,
-    (state, ownProps) => ({ ownProps, state })
+    getCoinsSortedByBalance,
+    selectors.modules.profile.isSilverOrAbove,
+    selectors.form.getFormValues(REQUEST_FORM)
   ],
-  (accounts, coinAvailabilitiesR, btcNetworkR, { ownProps, state }) => {
-    const { selectedCoin } = ownProps?.formValues || {}
-    const coinAvailabilities = coinAvailabilitiesR.getOrFail(
-      'No available coins.'
-    )
-    const btcNetwork = btcNetworkR.getOrElse('bitcoin') as string
+  (
+    accounts,
+    sortedCoinsR: ReturnType<typeof getCoinsSortedByBalance>,
+    isSilverOrAbove,
+    formValues: { coinSearch?: string }
+  ) => {
+    const search = formValues?.coinSearch || 'ALL'
     const prunedAccounts = [] as Array<SwapAccountType>
+    const isAtLeastTier1 = isSilverOrAbove
+    const lowerSearch = search.toLowerCase()
+    // @ts-ignore
+    const ethAccount = accounts.ETH?.find(({ type }) => type === SwapBaseCounterTypes.ACCOUNT)
+    const sortedCoins = sortedCoinsR
+      .getOrElse([] as CoinfigType[])
+      .map(({ symbol }) => symbol)
+      .reverse()
 
     // @ts-ignore
     map(
-      coin =>
-        map((acct: any) => {
-          // remove account if any if either of following are true
-          // - coin receive feature is currently disabled
-          // - form has a selected coin and it doesnt match accounts coin type
-          if (
-            selectedCoin === 'ALL'
-              ? coinAvailabilities[acct.coin].request
-              : acct.coin === selectedCoin
-          ) {
-            // if HD account type and coin is BTC, derive next address
-            if (acct.type === ADDRESS_TYPES.ACCOUNT && acct.coin === 'BTC') {
-              const defaultDerivation = selectors.core.common.btc.getAccountDefaultDerivation(
-                acct.accountIndex,
-                state
-              )
-              acct.nextReceiveAddress = selectors.core.common.btc
-                .getNextAvailableReceiveAddress(
-                  Bitcoin.networks[btcNetwork],
-                  acct.accountIndex,
-                  defaultDerivation,
-                  state
-                )
-                .getOrFail()
-            }
-            // if HD account type and coin is BCH, derive next address
-            if (acct.type === ADDRESS_TYPES.ACCOUNT && acct.coin === 'BCH') {
-              const nextBchAddress = selectors.core.common.bch
-                .getNextAvailableReceiveAddress(
-                  BitcoinCash.networks[btcNetwork],
-                  acct.accountIndex,
-                  state
-                )
-                .getOrFail()
+      (coinAccounts) =>
+        map((coinAccount: SwapAccountType) => {
+          const { coinfig } = window.coins[coinAccount.coin]
+          const lowerSearch = search.toLowerCase()
+          let include = false
 
-              acct.nextReceiveAddress = isCashAddr(nextBchAddress)
-                ? nextBchAddress
-                : toCashAddr(nextBchAddress, true)
-            }
-            prunedAccounts.push(acct)
-          }
-        }, coin),
+          if (search === 'ALL') include = true
+          if (coinAccount.coin.toLowerCase().includes(lowerSearch)) include = true
+          if (coinfig.name.toLowerCase().includes(lowerSearch)) include = true
+          if (coinfig.displaySymbol.toLowerCase().includes(lowerSearch)) include = true
+
+          if (include) prunedAccounts.push(coinAccount)
+        }, coinAccounts),
       accounts
     )
 
-    return prunedAccounts
+    const sortedAccounts = prunedAccounts
+      .sort((acc1, acc2) => {
+        // if the coin names are the same, sort by descending balance
+        if (window.coins[acc1.coin].coinfig.name === window.coins[acc2.coin].coinfig.name) {
+          return Number(acc2.balance) - Number(acc1.balance)
+        }
+        // if the coin name is what the user searched put in front of list
+        if (acc1.coin.toLowerCase() === lowerSearch || acc2.coin.toLowerCase() === lowerSearch) {
+          return 100
+        }
+
+        return (
+          levenshteinDistanceSearch(window.coins[acc1.coin].coinfig.name, lowerSearch) -
+          levenshteinDistanceSearch(window.coins[acc2.coin].coinfig.name, lowerSearch)
+        )
+      })
+      .sort((acc1, acc2) => {
+        return sortedCoins.indexOf(acc1.coin) < sortedCoins.indexOf(acc2.coin) ? 1 : -1
+      })
+
+    return { accounts: sortedAccounts, ethAccount, formValues, isAtLeastTier1 }
   }
 )
+export default getData

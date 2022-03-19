@@ -1,4 +1,4 @@
-import { CustodialFromType } from 'core/types'
+import { CustodialFromType } from '@core/types'
 
 export type UTXOType = {
   address: string
@@ -33,7 +33,4 @@ export type BtcLegacyFromType = IBtcFromType & {
   type: 'LEGACY'
 }
 
-export type BtcFromType =
-  | BtcAccountFromType
-  | BtcLegacyFromType
-  | CustodialFromType
+export type BtcFromType = BtcAccountFromType | BtcLegacyFromType | CustodialFromType

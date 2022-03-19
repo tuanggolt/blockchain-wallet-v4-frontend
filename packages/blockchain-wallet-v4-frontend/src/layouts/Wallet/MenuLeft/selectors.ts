@@ -1,7 +1,7 @@
 import { lift } from 'ramda'
 
-import { ExtractSuccess } from 'blockchain-wallet-v4/src/types'
-import { createDeepEqualSelector } from 'blockchain-wallet-v4/src/utils'
+import { ExtractSuccess } from '@core/types'
+import { createDeepEqualSelector } from '@core/utils'
 import { selectors } from 'data'
 
 export const getData = createDeepEqualSelector(
@@ -11,7 +11,9 @@ export const getData = createDeepEqualSelector(
     selectors.router.getPathname,
     selectors.core.kvStore.lockbox.getDevices,
     selectors.core.settings.getCountryCode,
-    selectors.core.walletOptions.getDomains
+    selectors.core.walletOptions.getDomains,
+    selectors.modules.profile.getUserData,
+    selectors.core.walletOptions.getWithdrawalLocksFundsOnHold
   ],
   (
     menuOpened: boolean,
@@ -19,12 +21,15 @@ export const getData = createDeepEqualSelector(
     pathname,
     lockboxDevicesR,
     countryCodeR,
-    domainsR
+    domainsR,
+    userDataR,
+    withdrawalLocksFundsOnHoldR
   ) => {
     const transform = (
       countryCode,
       domains: ExtractSuccess<typeof domainsR>,
-      lockboxDevices
+      lockboxDevices,
+      userData: ExtractSuccess<typeof userDataR>
     ) => {
       return {
         countryCode,
@@ -32,10 +37,12 @@ export const getData = createDeepEqualSelector(
         firstLogin,
         lockboxDevices,
         menuOpened,
-        pathname
+        pathname,
+        userData,
+        withdrawalLocksFundsOnHold: withdrawalLocksFundsOnHoldR.getOrElse(false)
       }
     }
 
-    return lift(transform)(countryCodeR, domainsR, lockboxDevicesR)
+    return lift(transform)(countryCodeR, domainsR, lockboxDevicesR, userDataR)
   }
 )

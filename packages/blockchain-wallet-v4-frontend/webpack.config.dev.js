@@ -1,9 +1,9 @@
-/* eslint-disable */
-const Webpack = require('webpack')
-const CaseSensitivePathsPlugin = require('case-sensitive-paths-webpack-plugin')
-const { evolve, update } = require('ramda')
+const { compose, dissoc, evolve, adjust, set, lensProp } = require('ramda')
+const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin')
+const ReactRefreshWebpackPlugin = require('@pmmmwh/react-refresh-webpack-plugin')
+const ReactRefreshTypeScript = require('react-refresh-typescript')
 
-const webpackBuilder = require('./utils/webpackBuilder')
+const webpackBuilder = require('./webpackBuilder')
 const CONFIG_PATH = require('../../config/paths')
 
 // get dev server config, envConfig, SSL flag and base webpack config from builder
@@ -11,8 +11,12 @@ const { devServerConfig, webpackConfig } = webpackBuilder({
   allowUnsafeScripts: true,
   allowUnsafeStyles: true,
   extraPluginsList: [
-    new CaseSensitivePathsPlugin(),
-    new Webpack.HotModuleReplacementPlugin()
+    new ReactRefreshWebpackPlugin(),
+    new ForkTsCheckerWebpackPlugin({
+      typescript: {
+        configFile: CONFIG_PATH.tsConfig
+      }
+    }),
   ],
   useDevServer: true,
   useHMR: true
@@ -28,48 +32,29 @@ const devWebpackConfig = evolve(
     devtool: () => 'inline-source-map',
     mode: () => 'development',
     module: {
-      rules: update(0, {
-        test: /\.js$/,
-        include: /src|blockchain-info-components.src|blockchain-wallet-v4.src/,
-        use: [
+      rules: compose(
+        // edits babel-loader config
+        adjust(0, rule => set(lensProp('use'), ['cache-loader', 'babel-loader'], rule)),
+        // next two `adjusts`, edit the ts-loader config
+        adjust(1, rule => dissoc('loader', rule)),
+        adjust(1, rule => set(lensProp('use'), [
           {
-            loader: 'thread-loader',
+            loader: 'ts-loader',
             options: {
-              workers: 8, // number of cores on intel i5
-              workerParallelJobs: 32,
-              workerNodeArgs: ['--max-old-space-size=2048'],
-              poolRespawn: false,
-              poolParallelJobs: 32
+              getCustomTransformers: () => ({
+                before: [ReactRefreshTypeScript()]
+              }),
+              transpileOnly: true
             }
-          },
-          'babel-loader'
-        ]
-      })
-    },
-    output: { path: () => CONFIG_PATH.appBuild },
-    optimization: {
-      concatenateModules: () => false,
-      splitChunks: {
-        cacheGroups: {
-          frontend: {
-            test: () =>
-              function(module) {
-                return (
-                  module.resource &&
-                  module.resource.indexOf(
-                    'blockchain-wallet-v4-frontend/src'
-                  ) === -1
-                )
-              }
           }
-        }
-      }
-    }
+        ], rule))
+      )
+    },
+    output: { path: () => CONFIG_PATH.appBuild }
   },
   webpackConfig
 )
 
-// merge configurations into one export for webpack
 module.exports = {
   ...devWebpackConfig,
   devServer: devServerConfig

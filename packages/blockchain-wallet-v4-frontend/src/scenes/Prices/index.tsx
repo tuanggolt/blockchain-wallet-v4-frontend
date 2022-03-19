@@ -1,13 +1,14 @@
 import React, { useEffect } from 'react'
 import { FormattedMessage } from 'react-intl'
-import { connect } from 'react-redux'
+import { connect, ConnectedProps } from 'react-redux'
 import { bindActionCreators, compose } from 'redux'
 import { BaseFieldProps, Field, formValueSelector, reduxForm } from 'redux-form'
 import styled from 'styled-components'
 
+import { ExtractSuccess } from '@core/types'
 import { Icon, Text } from 'blockchain-info-components'
 import { TextBox } from 'components/Form'
-import { SceneWrapper } from 'components/Layout'
+import { Header, PageTitle, SceneWrapper, SubTitle, Title } from 'components/Layout'
 import { actions, selectors } from 'data'
 
 import { getData } from './selectors'
@@ -15,39 +16,12 @@ import Failure from './template.failure'
 import Loading from './template.loading'
 import PricesTable from './template.success'
 
-const Header = styled.div`
-  width: 100%;
-  margin-bottom: 32px;
-`
-const PageTitle = styled.div`
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-  align-items: flex-end;
-  width: 100%;
-`
-const Title = styled.div`
-  display: flex;
-  justify-content: flex-start;
-  align-items: center;
-
-  & > :first-child {
-    margin-right: 16px;
-  }
-`
-const SubTitle = styled.div`
-  display: flex;
-  justify-content: flex-start;
-  margin: 16px 8px 0 0;
-`
 const TextFilterWrapper = styled.div`
   display: flex;
   position: relative;
   width: 300px;
 `
-const IconField = styled(Field)<
-  BaseFieldProps & { height: string; placeholder: string }
->`
+const IconField = styled(Field)<BaseFieldProps & { height: string; placeholder: string }>`
   div > input {
     padding-left: 40px;
   }
@@ -96,7 +70,7 @@ const Scene = ({ children }) => (
   </SceneWrapper>
 )
 
-const PricesContainer = props => {
+const PricesContainer = (props: Props) => {
   const { priceActions, rowDataR } = props
 
   useEffect(() => {
@@ -105,9 +79,9 @@ const PricesContainer = props => {
   }, [])
 
   return rowDataR.cata({
-    Success: val => (
+    Failure: () => (
       <Scene>
-        <PricesTable data={val} {...props} />
+        <Failure />
       </Scene>
     ),
     Loading: () => (
@@ -120,28 +94,40 @@ const PricesContainer = props => {
         <Loading />
       </Scene>
     ),
-    Failure: () => (
+    Success: (val) => (
       <Scene>
-        <Failure />
+        <PricesTable data={val} {...props} />
       </Scene>
     )
   })
 }
 
-const mapStateToProps = state => ({
+const mapStateToProps = (state) => ({
   rowDataR: getData(state),
   textFilter: formValueSelector('prices')(state, 'textFilter'),
   walletCurrency: selectors.core.settings.getCurrency(state).getOrElse('USD')
 })
 
-const mapDispatchToProps = dispatch => ({
+const mapDispatchToProps = (dispatch) => ({
+  buySellActions: bindActionCreators(actions.components.buySell, dispatch),
+  formActions: bindActionCreators(actions.form, dispatch),
   modalActions: bindActionCreators(actions.modals, dispatch),
   priceActions: bindActionCreators(actions.prices, dispatch),
-  routerActions: bindActionCreators(actions.router, dispatch)
+  routerActions: bindActionCreators(actions.router, dispatch),
+  swapActions: bindActionCreators(actions.components.swap, dispatch)
 })
 
 const connector = connect(mapStateToProps, mapDispatchToProps)
+const enhance = compose(reduxForm({ form: 'prices' }), connector)
 
-const enhance = compose<any>(reduxForm({ form: 'prices' }), connector)
-
-export default enhance(PricesContainer)
+export type TableColumnsType = {
+  buySellActions: ReturnType<typeof mapDispatchToProps>['buySellActions']
+  formActions: ReturnType<typeof mapDispatchToProps>['formActions']
+  modalActions: ReturnType<typeof mapDispatchToProps>['modalActions']
+  routerActions: ReturnType<typeof mapDispatchToProps>['routerActions']
+  swapActions: ReturnType<typeof mapDispatchToProps>['swapActions']
+  walletCurrency: ReturnType<typeof selectors.core.settings.getCurrency>
+}
+export type Props = ConnectedProps<typeof connector>
+export type SuccessStateType = ExtractSuccess<ReturnType<typeof getData>>
+export default enhance(PricesContainer) as React.ComponentClass

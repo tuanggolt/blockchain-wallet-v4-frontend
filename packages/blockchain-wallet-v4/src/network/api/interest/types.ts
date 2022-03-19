@@ -1,4 +1,4 @@
-import { CoinType, FiatType, NabuMoneyFloatType, WalletFiatType } from 'core/types'
+import { CoinType, FiatType, NabuMoneyFloatType, WalletFiatType } from '@core/types'
 
 export type InterestBalanceType = {
   balance: string
@@ -43,6 +43,7 @@ export type WithdrawLimits = {
   withdrawLimits: LimitDetails
 }
 
+export type InterestInstrumentsResponseType = { instruments: CoinType[] }
 export type InterestInstrumentsType = Array<CoinType>
 
 export type InterestFormErrorsType = {
@@ -109,6 +110,11 @@ export type InterestWithdrawalResponseType = {
 }
 
 export type WithdrawalMinimumType = Array<NabuMoneyFloatType>
+export type WithdrawalMinimumTypeResponse = {
+  feeType: 'NETWORK'
+  fees: Array<NabuMoneyFloatType>
+  minAmounts: Array<NabuMoneyFloatType>
+}
 
 export type CustodialTransferResponseType = {
   amount: string
@@ -118,4 +124,23 @@ export type CustodialTransferResponseType = {
 export type InterestEDDStatus = {
   eddNeeded: boolean
   eddPassed: boolean
+  eddSubmitted: boolean
+}
+
+export type InterestEDDDocumentsResponse = {
+  categories: Array<string>
+  maxAllowedFileSizeMBs: number
+  maxNumAllowedFiles: number
+  validTypes: Array<string>
+}
+
+export type FileUploadItem = {
+  category: string
+  file: string
+}
+
+export type UploadDocumentDetails = {
+  expectedDeposits: string
+  occupation: string
+  ssn?: string
 }

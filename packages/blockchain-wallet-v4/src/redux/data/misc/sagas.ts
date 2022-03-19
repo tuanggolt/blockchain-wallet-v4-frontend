@@ -2,9 +2,9 @@ import BigNumber from 'bignumber.js'
 import moment from 'moment'
 import { call, put, select } from 'redux-saga/effects'
 
-import { FiatTypeEnum, PriceDiffType, TimeRange } from 'blockchain-wallet-v4/src/types'
-import { errorHandler } from 'blockchain-wallet-v4/src/utils'
-import { APIType } from 'core/network/api'
+import { APIType } from '@core/network/api'
+import { FiatTypeEnum, PriceDiffType, TimeRange } from '@core/types'
+import { errorHandler } from '@core/utils'
 
 import * as pairing from '../../../pairing'
 import * as wS from '../../wallet/selectors'
@@ -35,7 +35,8 @@ export default ({ api }: { api: APIType }) => {
       if (base in FiatTypeEnum) return
       yield put(A.fetchPriceChangeLoading(base, range))
 
-      const time = range === TimeRange.ALL ? moment.unix(start[base]) : moment().subtract(1, range)
+      const time =
+        range === TimeRange.ALL ? moment.unix(start[base] || 0) : moment().subtract(1, range)
 
       const previous: ReturnType<typeof api.getPriceIndex> = yield call(
         api.getPriceIndex,
@@ -102,16 +103,19 @@ export default ({ api }: { api: APIType }) => {
   }
 
   const authorizeLogin = function* (action) {
-    const { confirm, token } = action.payload
+    const { confirm, session, token } = action.payload
     try {
       yield put(A.authorizeLoginLoading())
-      const data = yield call(api.authorizeLogin, token, confirm)
+      const data = yield call(api.authorizeLogin, token, confirm, session)
       if (data.success || data.device_change_reason) {
         yield put(A.authorizeLoginSuccess(data))
       } else {
         yield put(A.authorizeLoginFailure(data.error))
       }
     } catch (e) {
+      if (e.status === 409) {
+        yield put(A.authorizeLoginFailure(e.status))
+      }
       yield put(A.authorizeLoginFailure(e.message || e.error))
     }
   }

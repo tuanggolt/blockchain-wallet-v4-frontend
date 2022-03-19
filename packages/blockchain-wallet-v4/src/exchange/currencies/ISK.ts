@@ -1,20 +1,20 @@
 export default {
-  code: 'ISK',
   base: 'CENT',
+  code: 'ISK',
   displayName: 'Icelandic Króna',
   trade: 'ISK',
   units: {
     CENT: {
-      rate: '1',
-      symbol: '¢Íkr',
+      currency: 'INR',
       decimal_digits: 0,
-      currency: 'INR'
+      rate: '1',
+      symbol: '¢Íkr'
     },
     ISK: {
-      rate: '100',
-      symbol: 'Íkr',
+      currency: 'ISK',
       decimal_digits: 2,
-      currency: 'ISK'
+      rate: '100',
+      symbol: 'Íkr'
     }
   }
 }

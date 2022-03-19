@@ -3,18 +3,14 @@ import { FormattedMessage } from 'react-intl'
 import { prop } from 'ramda'
 import styled from 'styled-components'
 
-import {
-  Banner,
-  Text,
-  TooltipHost,
-  TooltipIcon
-} from 'blockchain-info-components'
+import { Banner, Text, TooltipHost, TooltipIcon } from 'blockchain-info-components'
 import { media } from 'services/styles'
 
 import {
   Addresses,
   DetailsColumn,
   DetailsRow,
+  fromAccountFormatter,
   IconTx,
   Row,
   RowHeader,
@@ -23,6 +19,7 @@ import {
   StyledCoinDisplay,
   StyledFiatDisplay,
   Timestamp,
+  toAccountFormatter,
   TxRow,
   TxRowContainer
 } from '../components'
@@ -34,7 +31,10 @@ import Status from './Status'
 import TransactionFee from './TransactionFee'
 
 const BannerWrapper = styled.div`
-  margin-left: 6px;
+  margin: 0 6px;
+  &:not(:first-child) {
+    margin-top: 4px;
+  }
 `
 const AddressesColumn = styled.div`
   display: none;
@@ -70,13 +70,9 @@ const NonCustodialTx = ({
   handleRetrySendEth,
   handleToggle,
   isToggled,
-  onViewTxDetails,
   transaction
 }: Props & ParentClassProps) => (
-  <TxRowContainer
-    className={isToggled ? 'active' : ''}
-    data-e2e='transactionRow'
-  >
+  <TxRowContainer className={isToggled ? 'active' : ''} data-e2e='transactionRow'>
     <TxRow onClick={() => handleToggle()}>
       <Row data-e2e='transactionDateColumn' width='30%'>
         <IconTx coin={coin} type={transaction.type} />
@@ -87,44 +83,38 @@ const NonCustodialTx = ({
         {'rbf' in transaction && transaction.rbf && (
           <BannerWrapper>
             <Banner label='true' size='10px' type='informational'>
-              <FormattedMessage
-                id='components.txlistitem.rbf'
-                defaultMessage='Replace-By-Fee'
-              />
+              <FormattedMessage id='components.txlistitem.rbf' defaultMessage='Replace-By-Fee' />
             </Banner>
           </BannerWrapper>
         )}
-        {'erc20' in transaction && transaction.erc20 && (
-          <BannerWrapper>
-            <Banner label='true' size='10px' type='informational'>
-              <FormattedMessage
-                id='components.txlistitem.erc20fee'
-                defaultMessage='ERC20 Fee'
-              />
-            </Banner>
-          </BannerWrapper>
-        )}
-        {'state' in transaction &&
-          transaction.state === 'PENDING' &&
-          transaction.type === 'sent' && (
-            <TooltipHost id='transaction.pending.eth' data-place='right'>
-              <BannerWrapper
-                onClick={e =>
-                  handleRetrySendEth(e, transaction.hash, transaction.erc20)
-                }
-              >
-                <Banner label='true'>
-                  <FormattedMessage
-                    id='components.txlistitem.retrytx'
-                    defaultMessage='Resend Transaction'
-                  />
-                </Banner>
-              </BannerWrapper>
-            </TooltipHost>
+        <div>
+          {'erc20' in transaction && transaction.erc20 && (
+            <BannerWrapper>
+              <Banner label='true' size='10px' type='informational'>
+                <FormattedMessage id='components.txlistitem.erc20fee' defaultMessage='ERC20 Fee' />
+              </Banner>
+            </BannerWrapper>
           )}
+          {'state' in transaction &&
+            transaction.state === 'PENDING' &&
+            transaction.type === 'sent' && (
+              <TooltipHost id='transaction.pending.eth' data-place='right'>
+                <BannerWrapper
+                  onClick={(e) => handleRetrySendEth(e, transaction.hash, transaction.erc20)}
+                >
+                  <Banner label='true' size='11px'>
+                    <FormattedMessage
+                      id='components.txlistitem.retrytx'
+                      defaultMessage='Resend Transaction'
+                    />
+                  </Banner>
+                </BannerWrapper>
+              </TooltipHost>
+            )}
+        </div>
       </Row>
       <AddressesColumn data-e2e='transactionAddressesColumn'>
-        <Addresses to={transaction.to} from={transaction.from} />
+        <Addresses to={toAccountFormatter(transaction)} from={fromAccountFormatter(transaction)} />
       </AddressesColumn>
       <AmountColumn data-e2e='transactionAmountColumn'>
         <StyledCoinDisplay coin={coin}>{transaction.amount}</StyledCoinDisplay>
@@ -137,17 +127,16 @@ const NonCustodialTx = ({
       <DetailsRow data-e2e='expandedTransactionRow'>
         <DetailsColumn data-e2e='descriptionTransactionColumn'>
           <RowHeader>
-            <FormattedMessage
-              id='components.txlistitem.description'
-              defaultMessage='Description'
-            />
+            <FormattedMessage id='components.txlistitem.description' defaultMessage='Description' />
           </RowHeader>
-          <Description
-            description={transaction.description}
-            handleEditDescription={handleEditDescription}
-          />
+          {handleEditDescription && (
+            <Description
+              description={transaction.description}
+              handleEditDescription={handleEditDescription}
+            />
+          )}
           {coin === 'BTC' && (
-            <React.Fragment>
+            <>
               <RowHeader>
                 <FormattedMessage
                   id='components.txlistitem.valueattime'
@@ -163,39 +152,30 @@ const NonCustodialTx = ({
                   currency={currency}
                 />
               </RowValue>
-            </React.Fragment>
+            </>
           )}
-          {transaction.coin === 'XLM' && transaction.memo && (
-            <React.Fragment>
+          {'memo' in transaction && (
+            <>
               <RowHeader>
-                <FormattedMessage
-                  id='components.txlistitem.memo'
-                  defaultMessage='Memo'
-                />
+                <FormattedMessage id='components.txlistitem.memo' defaultMessage='Memo' />
                 &nbsp;
                 {transaction.memoType}
               </RowHeader>
-              <RowValue
-                size='14px'
-                capitalize
-                weight={400}
-                data-e2e='xlmTransactionMemo'
-              >
+              <RowValue size='14px' capitalize weight={400} data-e2e='xlmTransactionMemo'>
                 {transaction.memo}
               </RowValue>
-            </React.Fragment>
+            </>
           )}
         </DetailsColumn>
         {'inputs' in transaction && transaction.inputs && transaction.outputs && (
           <DetailsColumn data-e2e='sentFromTransactionColumn'>
             <RowHeader>
-              <FormattedMessage
-                id='components.txlistitem.sentfrom'
-                defaultMessage='Sent From'
-              />
+              <FormattedMessage id='components.txlistitem.sentfrom' defaultMessage='Sent From' />
             </RowHeader>
-            {prop('inputs', transaction).map(input => (
-              <RowValue size='13px'>{input.address}</RowValue>
+            {prop('inputs', transaction).map((input) => (
+              <RowValue key={input.address} size='13px'>
+                {input.address}
+              </RowValue>
             ))}
             <RowHeader>
               <FormattedMessage
@@ -203,8 +183,8 @@ const NonCustodialTx = ({
                 defaultMessage='Received By'
               />
             </RowHeader>
-            {prop('outputs', transaction).map(output => (
-              <IOAddressText size='14px' weight={400}>
+            {prop('outputs', transaction).map((output) => (
+              <IOAddressText key={output.address} size='14px' weight={400}>
                 <RowValue size='13px'>{output.address}</RowValue>
                 {output.change && (
                   <RowValue>
@@ -219,23 +199,15 @@ const NonCustodialTx = ({
         )}
         <DetailsColumn data-e2e='statusTransactionColumn'>
           <RowHeader>
-            <FormattedMessage
-              id='components.txlistitem.status'
-              defaultMessage='Status'
-            />
+            <FormattedMessage id='components.txlistitem.status' defaultMessage='Status' />
           </RowHeader>
           <Confirmations
             coin={coin}
             hash={transaction.hash}
             txBlockHeight={transaction.blockHeight}
-            onViewTxDetails={onViewTxDetails}
           />
           {transaction.type !== 'received' && 'fee' in transaction && (
-            <TransactionFee
-              coin={coin}
-              feeR={transaction.fee}
-              hash={transaction.hash}
-            />
+            <TransactionFee coin={coin} feeR={transaction.fee} hash={transaction.hash} />
           )}
         </DetailsColumn>
       </DetailsRow>
@@ -248,7 +220,6 @@ type ParentClassProps = {
   handleRetrySendEth: (e: any, txHash: string, isErc20: boolean) => void
   handleToggle: () => void
   isToggled: boolean
-  onViewTxDetails: (value: any) => void
 }
 
 export default NonCustodialTx

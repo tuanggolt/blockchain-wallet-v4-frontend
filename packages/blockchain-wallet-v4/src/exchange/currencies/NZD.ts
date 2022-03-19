@@ -1,20 +1,20 @@
 export default {
-  code: 'NZD',
   base: 'CENT',
+  code: 'NZD',
   displayName: 'New Zealand Dollar',
   trade: 'NZD',
   units: {
     CENT: {
-      rate: '1',
-      symbol: '¢NZ$',
+      currency: 'NZD',
       decimal_digits: 0,
-      currency: 'NZD'
+      rate: '1',
+      symbol: '¢NZ$'
     },
     NZD: {
-      rate: '100',
-      symbol: 'NZ$',
+      currency: 'NZD',
       decimal_digits: 2,
-      currency: 'NZD'
+      rate: '100',
+      symbol: 'NZ$'
     }
   }
 }

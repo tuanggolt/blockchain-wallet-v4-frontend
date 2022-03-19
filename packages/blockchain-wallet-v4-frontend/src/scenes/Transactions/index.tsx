@@ -6,25 +6,31 @@ import { bindActionCreators, compose, Dispatch } from 'redux'
 import { reduxForm } from 'redux-form'
 import styled from 'styled-components'
 
-import { Button, Icon, Link, Text } from 'blockchain-info-components'
+import { Exchange } from '@core'
 import {
+  CoinfigType,
   CoinType,
-  CoinTypeEnum,
   FiatType,
-  FiatTypeEnum,
   OrderType,
-  SupportedFiatType,
-  SupportedWalletCurrencyType,
   TimeRange,
   WalletCurrencyType,
-  WalletFiatEnum,
   WalletFiatType
-} from 'blockchain-wallet-v4/src/types'
+} from '@core/types'
+import { Button, Icon, Text } from 'blockchain-info-components'
+import { SavedRecurringBuy } from 'components/Box'
 import EmptyResults from 'components/EmptyResults'
 import { SceneWrapper } from 'components/Layout'
 import LazyLoadContainer from 'components/LazyLoadContainer'
-import { actions, model } from 'data'
+import { actions, model, selectors } from 'data'
 import { getIntroductionText } from 'data/coins/selectors'
+import { convertBaseToStandard } from 'data/components/exchange/services'
+import {
+  ActionEnum,
+  RecurringBuyOrigins,
+  RecurringBuyPeriods,
+  RecurringBuyRegisteredList,
+  RecurringBuyStepType
+} from 'data/types'
 import { media } from 'services/styles'
 
 import CoinIntroduction from './CoinIntroduction'
@@ -95,17 +101,7 @@ const ExplainerText = styled(Text)`
   margin-top: 15px;
   font-size: 16px;
   font-weight: 500;
-  color: ${props => props.theme.grey600};
-`
-const LearnMoreLink = styled(Link)`
-  display: inline-flex;
-  margin-left: 6px;
-`
-const LearnMoreText = styled(Text)`
-  margin-left: 3px;
-  size: 16px;
-  font-weight: 500;
-  color: ${props => props.theme.blue600};
+  color: ${(props) => props.theme.grey600};
 `
 
 class TransactionsContainer extends React.PureComponent<Props> {
@@ -117,13 +113,11 @@ class TransactionsContainer extends React.PureComponent<Props> {
       TimeRange.WEEK
     )
     this.props.brokerageActions.fetchBankTransferAccounts()
+    this.props.recurringBuyActions.fetchRegisteredList()
   }
 
   componentDidUpdate(prevProps) {
-    if (
-      path(['location', 'pathname'], prevProps) !==
-      path(['location', 'pathname'], this.props)
-    ) {
+    if (path(['location', 'pathname'], prevProps) !== path(['location', 'pathname'], this.props)) {
       this.props.initTxs()
     }
   }
@@ -133,25 +127,25 @@ class TransactionsContainer extends React.PureComponent<Props> {
     this.props.initTxs()
   }
 
-  handleArchive = address => {
+  handleArchive = (address) => {
     // @ts-ignore
-    this.props.setAddressArchived && this.props.setAddressArchived(address)
+    if (this.props.setAddressArchived) this.props.setAddressArchived(address)
   }
 
   render() {
     const {
       coin,
-      coinModel,
       currency,
       hasTxResults,
-      isCoinErc20,
       isInvited,
+      isRecurringBuy,
       isSearchEntered,
       loadMoreTxs,
       pages,
+      recurringBuys,
       sourceType
     } = this.props
-    const { coinCode, coinTicker, displayName } = coinModel
+    const { coinfig } = window.coins[coin]
 
     return (
       <SceneWrapper>
@@ -159,13 +153,17 @@ class TransactionsContainer extends React.PureComponent<Props> {
           <Header>
             <PageTitle>
               <CoinTitle>
-                <Icon size='36px' color={coinCode} name={coinCode} />
+                <Icon
+                  size='36px'
+                  color={coinfig.symbol as CoinType}
+                  name={coinfig.symbol as CoinType}
+                />
                 <Text color='grey800' size='32px' weight={600}>
-                  {displayName}
+                  {coinfig.name}
                 </Text>
               </CoinTitle>
               <TitleActionContainer>
-                {coin in CoinTypeEnum && (
+                {coinfig.type.name !== 'FIAT' && (
                   <>
                     <Button
                       nature='primary'
@@ -173,79 +171,66 @@ class TransactionsContainer extends React.PureComponent<Props> {
                       width='100px'
                       style={{ marginRight: '8px' }}
                       onClick={() => {
-                        this.props.simpleBuyActions.showModal(
-                          'TransactionList',
-                          coin as CoinType,
-                          OrderType.SELL
-                        )
+                        this.props.buySellActions.showModal({
+                          cryptoCurrency: coin as CoinType,
+                          orderType: OrderType.SELL,
+                          origin: 'TransactionList'
+                        })
                       }}
                     >
-                      <FormattedMessage
-                        id='buttons.sell'
-                        defaultMessage='Sell'
-                      />
+                      <FormattedMessage id='buttons.sell' defaultMessage='Sell' />
                     </Button>
                     <Button
                       nature='primary'
                       data-e2e='buyCrypto'
                       width='100px'
                       onClick={() => {
-                        this.props.simpleBuyActions.showModal(
-                          'TransactionList',
-                          coin as CoinType,
-                          OrderType.BUY
-                        )
+                        this.props.buySellActions.showModal({
+                          orderType: OrderType.BUY,
+                          origin: 'TransactionList'
+                        })
                       }}
                     >
                       <FormattedMessage id='buttons.buy' defaultMessage='Buy' />
                     </Button>
                   </>
                 )}
-                {coin in WalletFiatEnum && (
+                {coinfig.type.name === 'FIAT' && (
                   <>
-                    {(coinModel as SupportedFiatType).availability.deposit && (
+                    {window.coins[coin].coinfig.type.name === 'FIAT' && (
                       <Button
                         nature='primary'
                         data-e2e='depositFiat'
                         style={{ minWidth: 'auto' }}
                         onClick={() => {
                           if (!this.props.brokerageActions) return
-                          if (!this.props.simpleBuyActions) return
+                          if (!this.props.buySellActions) return
                           if (isInvited || coin === 'USD') {
                             this.props.brokerageActions.handleDepositFiatClick(
                               coin as WalletFiatType
                             )
                           } else {
-                            this.props.simpleBuyActions.handleSBDepositFiatClick(
-                              coin as WalletFiatType,
-                              'TransactionList'
-                            )
+                            this.props.buySellActions.handleDepositFiatClick({
+                              coin: coin as WalletFiatType,
+                              origin: 'TransactionList'
+                            })
                           }
                         }}
                       >
-                        <FormattedMessage
-                          id='buttons.deposit'
-                          defaultMessage='Deposit'
-                        />
+                        <FormattedMessage id='buttons.deposit' defaultMessage='Deposit' />
                       </Button>
                     )}
-                    {(coinModel as SupportedFiatType).availability
-                      .withdrawal && (
+                    {window.coins[coin].coinfig.type.name === 'FIAT' && (
                       <Button
                         nature='primary'
                         data-e2e='withdrawFiat'
-                        style={{ minWidth: 'auto', marginLeft: '8px' }}
+                        style={{ marginLeft: '8px', minWidth: 'auto' }}
                         onClick={() => {
-                          if (!this.props.withdrawActions) return
-                          this.props.withdrawActions.showModal(
-                            coin as WalletFiatType
-                          )
+                          if (!this.props.brokerageActions) return
+                          this.props.brokerageActions.handleWithdrawClick(coin as WalletFiatType)
                         }}
                       >
-                        <FormattedMessage
-                          id='buttons.withdraw'
-                          defaultMessage='Withdraw'
-                        />
+                        <FormattedMessage id='buttons.withdraw' defaultMessage='Withdraw' />
                       </Button>
                     )}
                   </>
@@ -253,32 +238,40 @@ class TransactionsContainer extends React.PureComponent<Props> {
               </TitleActionContainer>
             </PageTitle>
             <ExplainerWrapper>
-              <ExplainerText>
-                {getIntroductionText(coin)}
-                {!(coin in FiatTypeEnum) && (
-                  <LearnMoreLink href={coinModel.learnMoreLink} target='_blank'>
-                    <LearnMoreText size='16px'>
-                      <FormattedMessage
-                        id='buttons.learn_more'
-                        defaultMessage='Learn More'
-                      />
-                    </LearnMoreText>
-                  </LearnMoreLink>
-                )}
-              </ExplainerText>
+              <ExplainerText>{getIntroductionText(coin)}</ExplainerText>
             </ExplainerWrapper>
             <StatsContainer>
-              <WalletBalanceDropdown
-                coin={coin}
-                coinModel={coinModel}
-                isCoinErc20={isCoinErc20}
-              />
-              {coin in CoinTypeEnum && (
-                <CoinPerformance coin={coin} coinModel={coinModel} />
-              )}
+              <WalletBalanceDropdown coin={coin} />
+              {coinfig.type.name !== 'FIAT' && <CoinPerformance coin={coin} />}
             </StatsContainer>
           </Header>
-          {(hasTxResults || isSearchEntered) && coin in CoinTypeEnum && (
+          <div style={{ display: 'flex', flexFlow: 'row wrap', justifyContent: 'space-between' }}>
+            {isRecurringBuy &&
+              recurringBuys.map((recurringBuy) => (
+                <SavedRecurringBuy
+                  key={recurringBuy.id}
+                  action={'BUY' as ActionEnum}
+                  amount={`${Exchange.getSymbol(recurringBuy.inputCurrency)}${convertBaseToStandard(
+                    recurringBuy.inputCurrency,
+                    recurringBuy.inputValue
+                  )}`}
+                  coin={recurringBuy.destinationCurrency}
+                  nextPayment={recurringBuy.nextPayment}
+                  onClick={() => {
+                    this.props.recurringBuyActions.setActive(recurringBuy)
+                    this.props.recurringBuyActions.showModal({
+                      origin: RecurringBuyOrigins.COIN_PAGE
+                    })
+                    this.props.recurringBuyActions.setStep({
+                      origin: RecurringBuyOrigins.COIN_PAGE,
+                      step: RecurringBuyStepType.DETAILS
+                    })
+                  }}
+                  period={recurringBuy.period as RecurringBuyPeriods}
+                />
+              ))}
+          </div>
+          {(hasTxResults || isSearchEntered) && coinfig.type.name !== 'FIAT' && (
             <TransactionFilters coin={coin as CoinType} />
           )}
           {!hasTxResults && isSearchEntered && (
@@ -291,18 +284,16 @@ class TransactionsContainer extends React.PureComponent<Props> {
               <CoinIntroduction coin={coin as CoinType} />
             </SceneWrapper>
           )}
-          {hasTxResults && sourceType && sourceType === 'INTEREST' && (
-            <InterestTransactions />
-          )}
+          {hasTxResults && sourceType && sourceType === 'INTEREST' && <InterestTransactions />}
           {hasTxResults &&
             (!sourceType || sourceType !== 'INTEREST') &&
-            pages.map((value, index) => (
+            pages.map((value) => (
               <TransactionList
                 coin={coin}
-                coinTicker={coinTicker}
+                coinTicker={coinfig.symbol}
                 currency={currency}
                 data={value}
-                key={index}
+                key={coinfig.symbol}
                 onArchive={this.handleArchive}
                 onLoadMore={loadMoreTxs}
                 onRefresh={this.handleRefresh}
@@ -315,55 +306,51 @@ class TransactionsContainer extends React.PureComponent<Props> {
   }
 }
 
-const mapStateToProps = (state, ownProps): LinkStatePropsType =>
-  // @ts-ignore
-  getData(state, ownProps.coin, ownProps.isCoinErc20, ownProps.isFiat)
+const mapStateToProps = (state, ownProps: OwnProps): LinkStatePropsType =>
+  getData(state, ownProps.coin, ownProps.coinfig)
 
-const mapDispatchToProps = (dispatch: Dispatch, ownProps) => {
-  const { coin, isCoinErc20 } = ownProps
+const mapDispatchToProps = (dispatch: Dispatch, ownProps: OwnProps) => {
+  const { coin, coinfig } = ownProps
   const baseActions = {
-    brokerageActions: bindActionCreators(
-      actions.components.brokerage,
-      dispatch
-    ),
+    brokerageActions: bindActionCreators(actions.components.brokerage, dispatch),
+    buySellActions: bindActionCreators(actions.components.buySell, dispatch),
     miscActions: bindActionCreators(actions.core.data.misc, dispatch),
-    simpleBuyActions: bindActionCreators(
-      actions.components.simpleBuy,
-      dispatch
-    ),
+    recurringBuyActions: bindActionCreators(actions.components.recurringBuy, dispatch),
     withdrawActions: bindActionCreators(actions.components.withdraw, dispatch)
   }
-  if (isCoinErc20) {
+  if (selectors.core.data.coins.getErc20Coins().includes(coin)) {
     return {
       ...baseActions,
       fetchData: () => dispatch(actions.core.data.eth.fetchErc20Data(coin)),
-      initTxs: () =>
-        dispatch(actions.components.ethTransactions.initializedErc20(coin)),
-      loadMoreTxs: () =>
-        dispatch(actions.components.ethTransactions.loadMoreErc20(coin))
+      initTxs: () => dispatch(actions.components.ethTransactions.initializedErc20(coin)),
+      loadMoreTxs: () => dispatch(actions.components.ethTransactions.loadMoreErc20(coin))
     }
   }
-  if (coin in WalletFiatEnum) {
+  if (selectors.core.data.coins.getCustodialCoins().includes(coin)) {
     return {
       ...baseActions,
       fetchData: () => {},
-      loadMoreTxs: () =>
-        dispatch(actions.components.fiatTransactions.loadMore(coin)),
+      initTxs: () => dispatch(actions.components.coinTransactions.initialized(coin)),
+      loadMoreTxs: () => dispatch(actions.components.coinTransactions.loadMore(coin))
+    }
+  }
+  if (coinfig.type.name === 'FIAT') {
+    return {
+      ...baseActions,
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
+      fetchData: () => {},
       initTxs: () =>
-        dispatch(actions.components.fiatTransactions.initialized(coin))
+        dispatch(actions.components.fiatTransactions.initialized(coin as WalletFiatType)),
+      loadMoreTxs: () =>
+        dispatch(actions.components.fiatTransactions.loadMore(coin as WalletFiatType))
     }
   }
   return {
     ...baseActions,
     fetchData: () => dispatch(actions.core.data[toLower(coin)].fetchData()),
-    initTxs: () =>
-      dispatch(
-        actions.components[`${toLower(coin)}Transactions`].initialized()
-      ),
-    loadMoreTxs: () =>
-      dispatch(actions.components[`${toLower(coin)}Transactions`].loadMore()),
-    setAddressArchived: address =>
-      dispatch(actions.core.wallet.setAddressArchived(address, true))
+    initTxs: () => dispatch(actions.components[`${toLower(coin)}Transactions`].initialized()),
+    loadMoreTxs: () => dispatch(actions.components[`${toLower(coin)}Transactions`].loadMore()),
+    setAddressArchived: (address) => dispatch(actions.core.wallet.setAddressArchived(address, true))
   }
 }
 
@@ -371,17 +358,17 @@ const connector = connect(mapStateToProps, mapDispatchToProps)
 
 export type OwnProps = {
   coin: WalletCurrencyType
-  isCoinErc20: boolean
-  isFiat: boolean
+  coinfig: CoinfigType
 }
 
 export type SuccessStateType = {
-  coinModel: SupportedWalletCurrencyType
   currency: FiatType
   hasTxResults: boolean
   isInvited: boolean
+  isRecurringBuy: boolean
   isSearchEntered: boolean
   pages: Array<any>
+  recurringBuys: RecurringBuyRegisteredList[]
   sourceType: string
 }
 

@@ -1,10 +1,24 @@
-import { CoinType, SBPaymentTypes, WalletFiatType } from 'core/types'
-import { BankTransferAccountType, ProductEligibility } from 'data/types'
+import {
+  BSPaymentTypes,
+  CoinType,
+  CrossBorderLimits,
+  FiatType,
+  WalletAccountType,
+  WalletFiatType
+} from '@core/types'
+import {
+  BankTransferAccountType,
+  NabuProductType,
+  ProductEligibilityResponse,
+  WithdrawLimitsResponse
+} from 'data/types'
 
+import { BSTransactionsType } from '../buySell/types'
 import {
   BeneficiariesType,
   BeneficiaryType,
   CustodialTransferRequestType,
+  GetTransactionsHistoryType,
   NabuCustodialProductType,
   PaymentDepositPendingResponseType,
   WithdrawalFeesProductType,
@@ -17,14 +31,17 @@ import {
 export default ({ authorizedGet, authorizedPost, nabuUrl }) => {
   const getBeneficiaries = (): BeneficiariesType =>
     authorizedGet({
-      url: nabuUrl,
-      endPoint: '/payments/beneficiaries'
+      endPoint: '/payments/beneficiaries',
+      url: nabuUrl
     })
 
-  const getWithdrawalLocks = (): WithdrawalLockResponseType =>
+  const getWithdrawalLocks = (currency: FiatType): WithdrawalLockResponseType =>
     authorizedGet({
-      url: nabuUrl,
-      endPoint: '/payments/withdrawals/locks'
+      data: {
+        currency
+      },
+      endPoint: `/payments/withdrawals/locks`,
+      url: nabuUrl
     })
 
   const notifyNonCustodialToCustodialTransfer = (
@@ -35,16 +52,16 @@ export default ({ authorizedGet, authorizedPost, nabuUrl }) => {
     product: NabuCustodialProductType
   ): PaymentDepositPendingResponseType =>
     authorizedPost({
-      url: nabuUrl,
-      endPoint: '/payments/deposits/pending',
       contentType: 'application/json',
       data: {
+        amount,
         currency,
         depositAddress,
-        txHash,
-        amount,
-        product
-      }
+        product,
+        txHash
+      },
+      endPoint: '/payments/deposits/pending',
+      url: nabuUrl
     })
 
   const withdrawFunds = (
@@ -53,66 +70,121 @@ export default ({ authorizedGet, authorizedPost, nabuUrl }) => {
     baseAmount: string
   ): WithdrawResponseType =>
     authorizedPost({
-      url: nabuUrl,
-      endPoint: '/payments/withdrawals',
       contentType: 'application/json',
+      data: {
+        amount: baseAmount,
+        beneficiary: beneficiary.id,
+        currency
+      },
+      endPoint: '/payments/withdrawals',
       headers: {
         'blockchain-origin': 'simplebuy'
       },
-      data: {
-        beneficiary: beneficiary.id,
-        currency,
-        amount: baseAmount
-      }
+      url: nabuUrl
     })
 
   const getWithdrawalFees = (
     product: WithdrawalFeesProductType,
-    paymentMethod?: SBPaymentTypes | 'ALL'
+    paymentMethod?: BSPaymentTypes | 'DEFAULT' | 'ALL'
   ): WithdrawalMinsAndFeesResponse =>
     authorizedGet({
-      url: nabuUrl,
       data: {
         paymentMethod,
         product
       },
-      endPoint: `/payments/withdrawals/fees`
+      endPoint: `/payments/withdrawals/fees`,
+      url: nabuUrl
     })
 
   const checkWithdrawalLocks = (
-    paymentMethod: SBPaymentTypes,
+    paymentMethod: BSPaymentTypes,
     currency: WalletFiatType
   ): WithdrawalLockCheckResponseType =>
     authorizedPost({
-      url: nabuUrl,
-      endPoint: '/payments/withdrawals/locks/check',
       contentType: 'application/json',
       data: {
-        paymentMethod,
-        currency
-      }
+        currency,
+        paymentMethod
+      },
+      endPoint: '/payments/withdrawals/locks/check',
+      url: nabuUrl
     })
 
   const initiateCustodialTransfer = (request: CustodialTransferRequestType) =>
     authorizedPost({
-      url: nabuUrl,
-      endPoint: '/custodial/transfer',
       contentType: 'application/json',
-      data: request
+      data: request,
+      endPoint: '/custodial/transfer',
+      url: nabuUrl
     })
 
-  const getProductsEligibility = (): ProductEligibility[] =>
+  const getEligibilityForProduct = (product: NabuProductType): ProductEligibilityResponse =>
     authorizedGet({
-      url: nabuUrl,
-      endPoint: '/eligible/products'
+      endPoint: `/eligible/product/${product}`,
+      url: nabuUrl
+    })
+
+  const getTransactionsHistory = ({
+    currency,
+    fromValue,
+    toValue
+  }: GetTransactionsHistoryType): BSTransactionsType =>
+    authorizedGet({
+      data: {
+        currency,
+        fromValue,
+        pending: true,
+        product: 'SIMPLEBUY',
+        toValue
+      },
+      endPoint: '/payments/transactions',
+      url: nabuUrl
+    })
+
+  const getWithdrawalLimits = (currency?: FiatType): WithdrawLimitsResponse =>
+    authorizedGet({
+      data: {
+        currency
+      },
+      endPoint: `/v2/limits/withdrawals`,
+      url: nabuUrl
+    })
+
+  const getCrossBorderTransactions = (
+    inputCurrency: CoinType,
+    fromAccount: WalletAccountType,
+    outputCurrency: CoinType,
+    toAccount: WalletAccountType,
+    currency?: WalletFiatType
+  ): CrossBorderLimits =>
+    authorizedGet({
+      data: {
+        currency,
+        fromAccount,
+        inputCurrency,
+        outputCurrency,
+        toAccount
+      },
+      endPoint: `/limits/crossborder/transaction`,
+      url: nabuUrl
+    })
+
+  const getLimitsAndFeaturesDetails = () =>
+    authorizedGet({
+      endPoint: `/limits/overview`,
+      url: nabuUrl
     })
 
   return {
     checkWithdrawalLocks,
     getBeneficiaries,
-    getProductsEligibility,
-    getWithdrawalLocks,
+    getCrossBorderTransactions,
+    getEligibilityForProduct,
+    getLimitsAndFeaturesDetails,
+    getTransactionsHistory,
     getWithdrawalFees,
+    getWithdrawalLimits,
+    getWithdrawalLocks,
     initiateCustodialTransfer,
     notifyNonCustodialToCustodialTransfer,
     withdrawFunds

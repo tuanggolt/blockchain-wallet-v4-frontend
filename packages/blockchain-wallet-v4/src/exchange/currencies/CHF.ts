@@ -1,20 +1,20 @@
 export default {
-  code: 'CHF',
   base: 'CENT',
+  code: 'CHF',
   displayName: 'Swiss Franc',
   trade: 'CHF',
   units: {
     CENT: {
-      rate: '1',
-      symbol: '¢ CHF',
+      currency: 'CHF',
       decimal_digits: 0,
-      currency: 'CHF'
+      rate: '1',
+      symbol: '¢ CHF'
     },
     CHF: {
-      rate: '100',
-      symbol: 'CHF',
+      currency: 'CHF',
       decimal_digits: 2,
-      currency: 'CHF'
+      rate: '100',
+      symbol: 'CHF'
     }
   }
 }

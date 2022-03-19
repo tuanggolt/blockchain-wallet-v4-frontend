@@ -1,7 +1,7 @@
 import { append, compose, includes, intersection, isEmpty, map, path, test } from 'ramda'
 import { call, put, select } from 'redux-saga/effects'
 
-import { transactions } from 'blockchain-wallet-v4/src'
+import { transactions } from '@core'
 import { actions, selectors } from 'data'
 import * as T from 'services/alerts'
 
@@ -48,15 +48,11 @@ export default () => {
 
   const onError = (action) => {
     const message = path(['payload', 'error', 'message'], action)
-    actions.logs.logErrorMessage(
-      'middleware/webSocket/xlm/sagas',
-      'streamError',
-      message
-    )
+    actions.logs.logErrorMessage('middleware/webSocket/xlm/sagas', 'streamError', message)
   }
 
   return {
     onError,
-    onMessage,
+    onMessage
   }
 }

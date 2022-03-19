@@ -1,20 +1,20 @@
 export default {
-  code: 'JPY',
   base: 'CENT',
+  code: 'JPY',
   displayName: 'Japanese Yen',
   trade: 'JPY',
   units: {
     CENT: {
-      rate: '1',
-      symbol: '¢¥',
+      currency: 'JPY',
       decimal_digits: 0,
-      currency: 'JPY'
+      rate: '1',
+      symbol: '¢¥'
     },
     JPY: {
-      rate: '100',
-      symbol: '¥',
+      currency: 'JPY',
       decimal_digits: 2,
-      currency: 'JPY'
+      rate: '100',
+      symbol: '¥'
     }
   }
 }

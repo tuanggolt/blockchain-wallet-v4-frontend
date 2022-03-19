@@ -1,20 +1,8 @@
 import React, { PureComponent } from 'react'
 import { connect, ConnectedProps } from 'react-redux'
-import BigNumber from 'bignumber.js'
 import { bindActionCreators, Dispatch } from 'redux'
 
-import {
-  CoinType,
-  FiatType,
-  InterestAccountBalanceType,
-  InterestEDDStatus,
-  InterestLimitsType,
-  RatesType,
-  RemoteDataType,
-  SupportedWalletCurrenciesType,
-  WithdrawalMinimumType,
-  WithdrawLimits,
-} from 'blockchain-wallet-v4/src/types'
+import { CoinType, FiatType, RemoteDataType } from '@core/types'
 import DataError from 'components/DataError'
 import { actions } from 'data'
 
@@ -26,21 +14,21 @@ class WithdrawalFormContainer extends PureComponent<Props> {
   componentDidMount() {
     const { walletCurrency } = this.props
     this.handleRefresh()
-    this.props.interestActions.fetchEddWithdrawLimits(walletCurrency)
+    this.props.interestActions.fetchEDDWithdrawLimits({ currency: walletCurrency })
   }
 
   handleDisplayToggle = (isCoin: boolean) => {
     const { displayCoin } = this.props.data.getOrElse({
-      displayCoin: false,
+      displayCoin: false
     } as SuccessStateType)
     if (isCoin === displayCoin) return
     this.props.formActions.clearFields('interestWithdrawalForm', false, false, 'withdrawalAmount')
-    this.props.interestActions.setCoinDisplay(isCoin)
+    this.props.interestActions.setCoinDisplay({ isAmountDisplayedInCrypto: isCoin })
   }
 
   handleRefresh = () => {
     const { coin, interestActions, walletCurrency } = this.props
-    interestActions.initializeWithdrawalForm(coin, walletCurrency)
+    interestActions.initializeWithdrawalForm({ coin, walletCurrency })
   }
 
   render() {
@@ -51,34 +39,23 @@ class WithdrawalFormContainer extends PureComponent<Props> {
       NotAsked: () => <Loading />,
       Success: (val) => (
         <WithdrawalForm {...val} {...this.props} handleDisplayToggle={this.handleDisplayToggle} />
-      ),
+      )
     })
   }
 }
 
 const mapStateToProps = (state): LinkStatePropsType => ({
-  data: getData(state),
+  data: getData(state)
 })
 
 const mapDispatchToProps = (dispatch: Dispatch): LinkDispatchPropsType => ({
   formActions: bindActionCreators(actions.form, dispatch),
-  interestActions: bindActionCreators(actions.components.interest, dispatch),
+  interestActions: bindActionCreators(actions.components.interest, dispatch)
 })
 
 const connector = connect(mapStateToProps, mapDispatchToProps)
 
-export type SuccessStateType = {
-  accountBalances: InterestAccountBalanceType
-  availToWithdraw: BigNumber
-  coin: CoinType
-  displayCoin: boolean
-  interestEDDStatus: InterestEDDStatus
-  interestEDDWithdrawLimits: WithdrawLimits
-  interestLimits: InterestLimitsType
-  rates: RatesType
-  supportedCoins: SupportedWalletCurrenciesType
-  withdrawalMinimums: WithdrawalMinimumType
-}
+export type SuccessStateType = ReturnType<typeof getData>['data']
 
 type LinkStatePropsType = {
   data: RemoteDataType<string | Error, SuccessStateType>

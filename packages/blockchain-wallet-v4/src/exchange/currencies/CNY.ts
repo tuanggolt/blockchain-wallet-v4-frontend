@@ -1,20 +1,20 @@
 export default {
-  code: 'CNY',
   base: 'CENT',
+  code: 'CNY',
   displayName: 'Chinese Yuan',
   trade: 'CNY',
   units: {
     CENT: {
-      rate: '1',
-      symbol: '¢¥',
+      currency: 'CNY',
       decimal_digits: 0,
-      currency: 'CNY'
+      rate: '1',
+      symbol: '¢¥'
     },
     CNY: {
-      rate: '100',
-      symbol: '¥',
+      currency: 'CNY',
       decimal_digits: 2,
-      currency: 'CNY'
+      rate: '100',
+      symbol: '¥'
     }
   }
 }

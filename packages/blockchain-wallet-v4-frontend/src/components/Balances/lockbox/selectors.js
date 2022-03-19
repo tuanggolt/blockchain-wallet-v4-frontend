@@ -1,18 +1,15 @@
 import { lift, map, pathOr, sum } from 'ramda'
 
-import { Exchange } from 'blockchain-wallet-v4/src'
-import * as Currency from 'blockchain-wallet-v4/src/exchange/currency'
-import { createDeepEqualSelector } from 'blockchain-wallet-v4/src/utils'
+import { Exchange } from '@core'
+import { formatFiat } from '@core/exchange/utils'
+import { createDeepEqualSelector } from '@core/utils'
 import { selectors } from 'data'
 
 export const getLockboxBtcBalance = createDeepEqualSelector(
-  [
-    selectors.core.kvStore.lockbox.getLockboxBtcContext,
-    selectors.core.data.btc.getAddresses
-  ],
+  [selectors.core.kvStore.lockbox.getLockboxBtcContext, selectors.core.data.btc.getAddresses],
   (lockboxBtcContextR, addressesR) => {
     const contextToBalances = (lockboxContext, balances) => {
-      return lockboxContext.map(a => pathOr(0, [a, 'final_balance'], balances))
+      return lockboxContext.map((a) => pathOr(0, [a, 'final_balance'], balances))
     }
     const balancesR = lift(contextToBalances)(lockboxBtcContextR, addressesR)
     return balancesR.map(sum)
@@ -20,13 +17,10 @@ export const getLockboxBtcBalance = createDeepEqualSelector(
 )
 
 export const getLockboxBchBalance = createDeepEqualSelector(
-  [
-    selectors.core.kvStore.lockbox.getLockboxBchContext,
-    selectors.core.data.bch.getAddresses
-  ],
+  [selectors.core.kvStore.lockbox.getLockboxBchContext, selectors.core.data.bch.getAddresses],
   (lockboxBtcContextR, addressesR) => {
     const contextToBalances = (lockboxContext, balances) => {
-      return lockboxContext.map(a => pathOr(0, [a, 'final_balance'], balances))
+      return lockboxContext.map((a) => pathOr(0, [a, 'final_balance'], balances))
     }
     const balancesR = lift(contextToBalances)(lockboxBtcContextR, addressesR)
     return balancesR.map(sum)
@@ -34,13 +28,10 @@ export const getLockboxBchBalance = createDeepEqualSelector(
 )
 
 export const getLockboxEthBalance = createDeepEqualSelector(
-  [
-    selectors.core.kvStore.lockbox.getLockboxEthContext,
-    selectors.core.data.eth.getAddresses
-  ],
+  [selectors.core.kvStore.lockbox.getLockboxEthContext, selectors.core.data.eth.getAddresses],
   (lockboxBtcContextR, addressesR) => {
     const contextToBalances = (lockboxContext, balances) => {
-      return lockboxContext.map(a => pathOr(0, [a, 'balance'], balances))
+      return lockboxContext.map((a) => pathOr(0, [a, 'balance'], balances))
     }
     const balancesR = lift(contextToBalances)(lockboxBtcContextR, addressesR)
     return balancesR.map(sum)
@@ -49,32 +40,23 @@ export const getLockboxEthBalance = createDeepEqualSelector(
 
 export const getLockboxXlmBalance = createDeepEqualSelector(
   [
-    state =>
+    (state) =>
       selectors.core.kvStore.lockbox
         .getLockboxXlmContext(state)
-        .map(
-          map(accountId =>
-            selectors.core.data.xlm.getBalance(state, accountId).getOrElse(0)
-          )
-        )
+        .map(map((accountId) => selectors.core.data.xlm.getBalance(state, accountId).getOrElse(0)))
   ],
-  lockboxXlmBalancesR => lockboxXlmBalancesR.map(sum)
+  (lockboxXlmBalancesR) => lockboxXlmBalancesR.map(sum)
 )
 
 export const getBtcBalanceInfo = createDeepEqualSelector(
   [
     getLockboxBtcBalance,
-    selectors.core.data.btc.getRates,
-    selectors.core.settings.getCurrency
+    selectors.core.settings.getCurrency,
+    (state) => selectors.core.data.coins.getRates('BTC', state)
   ],
-  (btcBalanceR, btcRatesR, currencyR) => {
+  (btcBalanceR, currencyR, btcRatesR) => {
     const transform = (value, rates, toCurrency) =>
-      Exchange.convertBtcToFiat({
-        value,
-        fromUnit: 'SAT',
-        toCurrency,
-        rates
-      }).value
+      Exchange.convertCoinToFiat({ coin: 'BTC', currency: toCurrency, rates, value })
     return lift(transform)(btcBalanceR, btcRatesR, currencyR)
   }
 )
@@ -82,13 +64,12 @@ export const getBtcBalanceInfo = createDeepEqualSelector(
 export const getBchBalanceInfo = createDeepEqualSelector(
   [
     getLockboxBchBalance,
-    selectors.core.data.bch.getRates,
-    selectors.core.settings.getCurrency
+    selectors.core.settings.getCurrency,
+    (state) => selectors.core.data.coins.getRates('BCH', state)
   ],
-  (bchBalanceR, bchRatesR, currencyR) => {
+  (bchBalanceR, currencyR, bchRatesR) => {
     const transform = (value, rates, toCurrency) =>
-      Exchange.convertBchToFiat({ value, fromUnit: 'SAT', toCurrency, rates })
-        .value
+      Exchange.convertCoinToFiat({ coin: 'BCH', currency: toCurrency, rates, value })
     return lift(transform)(bchBalanceR, bchRatesR, currencyR)
   }
 )
@@ -96,13 +77,12 @@ export const getBchBalanceInfo = createDeepEqualSelector(
 export const getEthBalanceInfo = createDeepEqualSelector(
   [
     getLockboxEthBalance,
-    selectors.core.data.eth.getRates,
-    selectors.core.settings.getCurrency
+    selectors.core.settings.getCurrency,
+    (state) => selectors.core.data.coins.getRates('ETH', state)
   ],
-  (ethBalanceR, ethRatesR, currencyR) => {
+  (ethBalanceR, currencyR, ethRatesR) => {
     const transform = (value, rates, toCurrency) =>
-      Exchange.convertEthToFiat({ value, fromUnit: 'WEI', toCurrency, rates })
-        .value
+      Exchange.convertCoinToFiat({ coin: 'ETH', currency: toCurrency, rates, value })
     return lift(transform)(ethBalanceR, ethRatesR, currencyR)
   }
 )
@@ -110,17 +90,12 @@ export const getEthBalanceInfo = createDeepEqualSelector(
 export const getXlmBalanceInfo = createDeepEqualSelector(
   [
     getLockboxXlmBalance,
-    selectors.core.data.xlm.getRates,
-    selectors.core.settings.getCurrency
+    selectors.core.settings.getCurrency,
+    (state) => selectors.core.data.coins.getRates('XLM', state)
   ],
-  (xlmBalanceR, xlmRatesR, currencyR) => {
+  (xlmBalanceR, currencyR, xlmRatesR) => {
     const transform = (value, rates, toCurrency) =>
-      Exchange.convertXlmToFiat({
-        value,
-        fromUnit: 'STROOP',
-        toCurrency,
-        rates
-      }).value
+      Exchange.convertCoinToFiat({ coin: 'XLM', currency: toCurrency, rates, value })
     return lift(transform)(xlmBalanceR, xlmRatesR, currencyR)
   }
 )
@@ -133,25 +108,10 @@ export const getTotalBalance = createDeepEqualSelector(
     getXlmBalanceInfo,
     selectors.core.settings.getCurrency
   ],
-  (
-    btcBalanceInfoR,
-    bchBalanceInfoR,
-    ethBalanceInfoR,
-    xlmBalanceInfoR,
-    currency
-  ) => {
-    const transform = (
-      bchBalance,
-      btcBalance,
-      ethBalance,
-      xlmBalance,
-      currency
-    ) => {
-      const total = Currency.formatFiat(
-        Number(btcBalance) +
-          Number(ethBalance) +
-          Number(bchBalance) +
-          Number(xlmBalance)
+  (btcBalanceInfoR, bchBalanceInfoR, ethBalanceInfoR, xlmBalanceInfoR, currency) => {
+    const transform = (bchBalance, btcBalance, ethBalance, xlmBalance, currency) => {
+      const total = formatFiat(
+        Number(btcBalance) + Number(ethBalance) + Number(bchBalance) + Number(xlmBalance)
       )
       const totalBalance = `${Exchange.getSymbol(currency)}${total}`
       return { totalBalance }

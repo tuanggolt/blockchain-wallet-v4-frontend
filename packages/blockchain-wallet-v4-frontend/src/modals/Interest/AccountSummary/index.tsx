@@ -3,9 +3,9 @@ import { connect, ConnectedProps } from 'react-redux'
 import { includes } from 'ramda'
 import { bindActionCreators, Dispatch } from 'redux'
 
-import Currencies from 'blockchain-wallet-v4/src/exchange/currencies'
-import { getCurrency } from 'blockchain-wallet-v4/src/redux/settings/selectors'
-import { CoinType, RemoteDataType } from 'blockchain-wallet-v4/src/types'
+import Currencies from '@core/exchange/currencies'
+import { getCurrency } from '@core/redux/settings/selectors'
+import { CoinType, FiatType, RemoteDataType } from '@core/types'
 import DataError from 'components/DataError'
 import { actions } from 'data'
 import { InterestStepMetadata } from 'data/types'
@@ -22,24 +22,21 @@ class AccountSummaryContainer extends PureComponent<Props> {
 
   handleDepositClick = () => {
     const { coin, interestActions } = this.props
-    interestActions.showInterestModal('DEPOSIT', coin)
+    interestActions.showInterestModal({ coin, step: 'DEPOSIT' })
   }
 
   handleFetchInterestLimits = () => {
-    const { coin, currency, interestActions } = this.props
-    const walletCurrency = currency.getOrElse('GBP' as CurrencySuccessStateType)
-
-    interestActions.fetchInterestLimits(coin, walletCurrency)
+    const { coin, interestActions, walletCurrency } = this.props
+    interestActions.fetchInterestLimits({ coin, currency: walletCurrency })
   }
 
   handleRefresh = () => {
     const { coin, interestActions } = this.props
-    interestActions.showInterestModal('ACCOUNT_SUMMARY', coin)
+    interestActions.showInterestModal({ coin, step: 'ACCOUNT_SUMMARY' })
   }
 
   render() {
-    const { currency, data } = this.props
-    const walletCurrency = currency.getOrElse('GBP' as CurrencySuccessStateType)
+    const { data, walletCurrency } = this.props
 
     const unsupportedCurrencies = [Currencies.TWD.code, Currencies.CLP.code]
     return data.cata({
@@ -50,37 +47,45 @@ class AccountSummaryContainer extends PureComponent<Props> {
         includes(walletCurrency, unsupportedCurrencies) ? (
           <Unsupported {...val} {...this.props} walletCurrency={walletCurrency} />
         ) : (
-          <AccountSummary {...val} {...this.props} handleDepositClick={this.handleDepositClick} />
-        ),
+          <AccountSummary
+            {...val}
+            {...this.props}
+            handleDepositClick={this.handleDepositClick}
+            walletCurrency={walletCurrency}
+          />
+        )
     })
   }
 }
 
 const mapStateToProps = (state): LinkStatePropsType => ({
-  currency: getCurrency(state),
-  data: getData(state),
+  data: getData(state)
 })
 
 const mapDispatchToProps = (dispatch: Dispatch): LinkDispatchPropsType => ({
-  analyticsActions: bindActionCreators(actions.analytics, dispatch),
+  buySellActions: bindActionCreators(actions.components.buySell, dispatch),
   interestActions: bindActionCreators(actions.components.interest, dispatch),
-  simpleBuyActions: bindActionCreators(actions.components.simpleBuy, dispatch),
+  interestUploadDocumentActions: bindActionCreators(
+    actions.components.interestUploadDocument,
+    dispatch
+  )
 })
 
 const connector = connect(mapStateToProps, mapDispatchToProps)
 
 export type OwnProps = {
   coin: CoinType
+  handleBSClick: (string) => void
   handleClose: () => void
-  handleSBClick: (string) => void
   showSupply: boolean
   stepMetadata: InterestStepMetadata
+  walletCurrency: FiatType
 }
 
 export type LinkDispatchPropsType = {
-  analyticsActions: typeof actions.analytics
+  buySellActions: typeof actions.components.buySell
   interestActions: typeof actions.components.interest
-  simpleBuyActions: typeof actions.components.simpleBuy
+  interestUploadDocumentActions: typeof actions.components.interestUploadDocument
 }
 
 export type DataSuccessStateType = ReturnType<typeof getData>['data']
@@ -88,7 +93,6 @@ export type DataSuccessStateType = ReturnType<typeof getData>['data']
 export type CurrencySuccessStateType = ReturnType<typeof getCurrency>['data']
 
 type LinkStatePropsType = {
-  currency: RemoteDataType<string | Error, CurrencySuccessStateType>
   data: RemoteDataType<string | Error, DataSuccessStateType>
 }
 

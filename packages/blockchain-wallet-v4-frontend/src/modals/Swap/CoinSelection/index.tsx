@@ -1,16 +1,15 @@
 import React, { PureComponent } from 'react'
 import { FormattedMessage } from 'react-intl'
 import { connect, ConnectedProps } from 'react-redux'
+import AutoSizer from 'react-virtualized-auto-sizer'
+import { FixedSizeList as List } from 'react-window'
+import { equals } from 'ramda'
 
 import { Icon, Text } from 'blockchain-info-components'
 import { StickyHeaderFlyoutWrapper } from 'components/Flyout'
 import { CoinAccountListOption } from 'components/Form'
 import { selectors } from 'data'
-import { SUPPORTED_COINS } from 'data/coins/model/swap'
-import {
-  InitSwapFormValuesType,
-  SwapSideType
-} from 'data/components/swap/types'
+import { InitSwapFormValuesType, SwapSideType } from 'data/components/swap/types'
 import { RootState } from 'data/rootReducer'
 import { SwapAccountType } from 'data/types'
 
@@ -21,7 +20,6 @@ import { getData } from './selectors'
 class CoinSelection extends PureComponent<Props> {
   componentDidMount() {
     this.props.swapActions.fetchPairs()
-    this.props.swapActions.fetchCustodialEligibility()
   }
 
   checkAccountSelected = (
@@ -30,67 +28,47 @@ class CoinSelection extends PureComponent<Props> {
     account: SwapAccountType
   ) => {
     if (
-      (side === 'BASE' && values?.BASE?.label === account.label) ||
-      (side === 'COUNTER' && values?.COUNTER?.label === account.label)
+      (side === 'BASE' && !!values?.BASE && equals(values.BASE, account)) ||
+      (side === 'COUNTER' && !!values?.COUNTER && equals(values?.COUNTER, account))
     ) {
       return true
-    } else {
-      return false
     }
-  }
-
-  checkBaseCustodial = (
-    side: SwapSideType,
-    values: InitSwapFormValuesType,
-    account: SwapAccountType
-  ) => {
-    if (
-      (side === 'COUNTER' &&
-        values?.BASE?.type === 'CUSTODIAL' &&
-        account.type === 'ACCOUNT') ||
-      (side === 'BASE' &&
-        values?.COUNTER?.type === 'ACCOUNT' &&
-        account.type === 'CUSTODIAL')
-    ) {
-      return true
-    } else {
-      return false
-    }
-  }
-
-  checkCoinSelected = (
-    side: SwapSideType,
-    values: InitSwapFormValuesType,
-    account: SwapAccountType
-  ) => {
-    if (
-      (side === 'COUNTER' && values?.BASE?.coin === account.coin) ||
-      (side === 'BASE' && values?.COUNTER?.coin === account.coin)
-    ) {
-      return true
-    } else {
-      return false
-    }
-  }
-
-  checkBaseAccountZero = (side: SwapSideType, account: SwapAccountType) => {
-    if ((account.balance === 0 || account.balance === '0') && side === 'BASE') {
-      return true
-    } else {
-      return false
-    }
-  }
-
-  checkCustodialEligibility = (
-    custodialEligibility: boolean,
-    account: SwapAccountType
-  ) => {
-    return !(account.type === 'CUSTODIAL' && !custodialEligibility)
+    return false
   }
 
   render() {
-    // @ts-ignore
-    const { coins, custodialEligibility, values, walletCurrency } = this.props
+    const { filteredAccounts, values, walletCurrency } = this.props
+
+    const Row = ({ data: rowData, index, style }) => {
+      const account = rowData[index]
+
+      const isAccountSelected = this.checkAccountSelected(this.props.side, values, account)
+
+      return (
+        <div style={style}>
+          <CoinAccountListOption
+            key={account.label + account.coin + account.type}
+            account={account}
+            coin={account.coin}
+            onClick={() => {
+              if (this.props.side === 'BASE') {
+                this.props.swapActions.changeBase({ account })
+                return
+              }
+
+              if (this.props.side === 'COUNTER') {
+                this.props.swapActions.changeCounter({ account })
+              }
+            }}
+            isAccountSelected={isAccountSelected}
+            isSwap
+            showLowFeeBadges
+            walletCurrency={walletCurrency}
+          />
+        </div>
+      )
+    }
+
     return (
       <>
         <StickyHeaderFlyoutWrapper>
@@ -108,31 +86,15 @@ class CoinSelection extends PureComponent<Props> {
                 })
               }
             />{' '}
-            <Text
-              size='20px'
-              color='grey900'
-              weight={600}
-              style={{ marginLeft: '24px' }}
-            >
+            <Text size='20px' color='grey900' weight={600} style={{ marginLeft: '24px' }}>
               {this.props.side === 'BASE' ? (
-                <FormattedMessage
-                  id='copy.swap_from'
-                  defaultMessage='Swap from'
-                />
+                <FormattedMessage id='copy.swap_from' defaultMessage='Swap from' />
               ) : (
-                <FormattedMessage
-                  id='copy.receive_to'
-                  defaultMessage='Receive to'
-                />
+                <FormattedMessage id='copy.receive_to' defaultMessage='Receive to' />
               )}
             </Text>
           </TopText>
-          <Text
-            size='16px'
-            color='grey600'
-            weight={500}
-            style={{ margin: '10px 0 0 48px' }}
-          >
+          <Text size='16px' color='grey600' weight={500} style={{ margin: '10px 0 0 48px' }}>
             {this.props.side === 'BASE' ? (
               <FormattedMessage
                 id='copy.swap_from_origin'
@@ -146,67 +108,28 @@ class CoinSelection extends PureComponent<Props> {
             )}
           </Text>
         </StickyHeaderFlyoutWrapper>
-        {SUPPORTED_COINS.map(coin => {
-          const accounts =
-            (this.props.accounts[coin] as Array<SwapAccountType>) || []
-          return accounts.map(account => {
-            const isAccountSelected = this.checkAccountSelected(
-              this.props.side,
-              values,
-              account
-            )
-            const isCoinSelected = this.checkCoinSelected(
-              this.props.side,
-              values,
-              account
-            )
-            const hideCustodialToAccount = this.checkBaseCustodial(
-              this.props.side,
-              values,
-              account
-            )
-
-            const isBaseAccountZero = this.checkBaseAccountZero(
-              this.props.side,
-              account
-            )
-            const isCustodialEligible = this.checkCustodialEligibility(
-              custodialEligibility,
-              account
-            )
-
-            return (
-              !isBaseAccountZero &&
-              !isCoinSelected &&
-              !hideCustodialToAccount &&
-              isCustodialEligible && (
-                <CoinAccountListOption
-                  account={account}
-                  coinModel={coins[account.coin]}
-                  onClick={() =>
-                    this.props.swapActions.changePair(this.props.side, account)
-                  }
-                  isAccountSelected={isAccountSelected}
-                  isSwap={true}
-                  showLowFeeBadges
-                  walletCurrency={walletCurrency}
-                />
-              )
-            )
-          })
-        })}
+        <AutoSizer>
+          {({ height, width }) => (
+            <List
+              className='List'
+              height={height}
+              itemData={filteredAccounts}
+              itemCount={filteredAccounts?.length}
+              itemSize={74}
+              width={width}
+            >
+              {Row}
+            </List>
+          )}
+        </AutoSizer>
       </>
     )
   }
 }
 
 const mapStateToProps = (state: RootState, ownProps: OwnProps) => ({
-  values: selectors.form.getFormValues('initSwap')(
-    state
-  ) as InitSwapFormValuesType,
-  custodialEligibility: selectors.components.swap
-    .getCustodialEligibility(state)
-    .getOrElse(false),
+  coins: selectors.components.swap.getCoins(),
+  values: selectors.form.getFormValues('initSwap')(state) as InitSwapFormValuesType,
   ...getData(state, ownProps)
 })
 
@@ -216,8 +139,6 @@ export type OwnProps = BaseProps & {
   handleClose: () => void
   side: 'BASE' | 'COUNTER'
 }
-export type Props = OwnProps &
-  SuccessStateType &
-  ConnectedProps<typeof connector>
+export type Props = OwnProps & SuccessStateType & ConnectedProps<typeof connector>
 
 export default connector(CoinSelection)

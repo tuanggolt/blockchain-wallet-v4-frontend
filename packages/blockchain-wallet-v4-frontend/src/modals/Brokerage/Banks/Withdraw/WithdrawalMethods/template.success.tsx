@@ -2,12 +2,13 @@ import React, { ReactElement } from 'react'
 import { FormattedMessage } from 'react-intl'
 import styled from 'styled-components'
 
-import { Icon, Image, Text } from 'blockchain-info-components'
 import {
-  SBPaymentMethodsType,
-  SBPaymentMethodType,
+  BSPaymentMethodsType,
+  BSPaymentMethodType,
+  BSPaymentTypes,
   WalletFiatType
-} from 'blockchain-wallet-v4/src/types'
+} from '@core/types'
+import { Icon, Image, Text } from 'blockchain-info-components'
 import { FlyoutWrapper } from 'components/Flyout'
 import {
   AddBankStepType,
@@ -17,7 +18,7 @@ import {
 } from 'data/types'
 
 // TODO: move to somewhere more generic
-import BankWire from '../../../../SimpleBuy/PaymentMethods/Methods/BankWire'
+import BankWire from '../../../../BuySell/PaymentMethods/Methods/BankWire'
 import { mapDispatchToProps, Props as _P } from '.'
 import BankTransfer from './BankTransfer'
 
@@ -39,26 +40,26 @@ const TopText = styled(Text)`
 `
 
 const MethodList = styled.section`
-  border-top: 1px solid ${props => props.theme.grey000};
+  border-top: 1px solid ${(props) => props.theme.grey000};
 `
 
 const IconContainer = styled.div`
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background-color: ${props => props.theme.blue000};
+  background-color: ${(props) => props.theme.blue000};
   display: flex;
   align-items: center;
   justify-content: center;
 `
 
-const getIcon = (value: SBPaymentMethodType): ReactElement => {
+const getIcon = (value: BSPaymentMethodType): ReactElement => {
   switch (value.type) {
-    case 'BANK_TRANSFER':
-    case 'LINK_BANK':
+    case BSPaymentTypes.BANK_TRANSFER:
+    case BSPaymentTypes.LINK_BANK:
     default:
       return <Image name='bank' height='48px' />
-    case 'BANK_ACCOUNT':
+    case BSPaymentTypes.BANK_ACCOUNT:
       return (
         <IconContainer>
           <Icon size='18px' color='blue600' name='arrow-down' />
@@ -67,22 +68,24 @@ const getIcon = (value: SBPaymentMethodType): ReactElement => {
   }
 }
 
-const getType = (value: SBPaymentMethodType) => {
+const getType = (value: BSPaymentMethodType) => {
   switch (value.type) {
-    case 'BANK_TRANSFER':
-    case 'LINK_BANK':
+    case BSPaymentTypes.BANK_TRANSFER:
+    case BSPaymentTypes.LINK_BANK:
     default:
       return (
         <FormattedMessage
-          id='modals.simplebuy.banklink'
-          defaultMessage='Link a Bank'
+          id='modals.simplebuy.easybanktransfer'
+          defaultMessage='Easy Bank Transfer'
         />
       )
-    case 'BANK_ACCOUNT':
-      return (
+    case BSPaymentTypes.BANK_ACCOUNT:
+      return value.currency === 'USD' ? (
+        <FormattedMessage id='modals.simplebuy.bankwire' defaultMessage='Wire Transfer' />
+      ) : (
         <FormattedMessage
-          id='modals.simplebuy.bankwire'
-          defaultMessage='Wire Transfer'
+          id='modals.simplebuy.deposit.bank_transfer'
+          defaultMessage='Regular Bank Transfer'
         />
       )
   }
@@ -90,18 +93,18 @@ const getType = (value: SBPaymentMethodType) => {
 
 const Success = ({
   brokerageActions,
+  buySellActions,
   close,
   fiatCurrency,
   paymentMethods,
-  simpleBuyActions,
   userData,
   withdrawActions
 }: Props) => {
   const bankTransfer = paymentMethods.methods.find(
-    method => method.type === 'BANK_TRANSFER'
+    (method) => method.type === BSPaymentTypes.BANK_TRANSFER
   )
   const bankWire = paymentMethods.methods.find(
-    method => method.type === 'BANK_ACCOUNT'
+    (method) => method.type === BSPaymentTypes.BANK_ACCOUNT
   )
 
   return (
@@ -132,10 +135,10 @@ const Success = ({
           <BankTransfer
             icon={getIcon(bankTransfer)}
             onClick={() => {
-              brokerageActions.showModal(
-                BrokerageModalOriginType.ADD_BANK,
-                'ADD_BANK_YODLEE_MODAL'
-              )
+              brokerageActions.showModal({
+                modalType: 'ADD_BANK_YODLEE_MODAL',
+                origin: BrokerageModalOriginType.ADD_BANK_WITHDRAW
+              })
               brokerageActions.setAddBankStep({
                 addBankStep: AddBankStepType.ADD_BANK
               })
@@ -153,16 +156,16 @@ const Success = ({
           <BankWire
             icon={getIcon(bankWire)}
             onClick={() => {
-              simpleBuyActions.showModal('WithdrawModal')
+              buySellActions.showModal({ origin: 'WithdrawModal' })
               if (userData.tiers.current === 2) {
-                simpleBuyActions.setStep({
-                  step: 'BANK_WIRE_DETAILS',
-                  fiatCurrency: fiatCurrency,
+                buySellActions.setStep({
+                  addBank: true,
                   displayBack: false,
-                  addBank: true
+                  fiatCurrency,
+                  step: 'BANK_WIRE_DETAILS'
                 })
               } else {
-                simpleBuyActions.setStep({
+                buySellActions.setStep({
                   step: 'KYC_REQUIRED'
                 })
               }
@@ -184,7 +187,7 @@ const Success = ({
 type Props = {
   close: () => void
   fiatCurrency: WalletFiatType
-  paymentMethods: SBPaymentMethodsType
+  paymentMethods: BSPaymentMethodsType
   userData: UserDataType
 } & ReturnType<typeof mapDispatchToProps> &
   _P

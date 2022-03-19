@@ -19,7 +19,6 @@ const Wrapper = styled.div`
   box-sizing: border-box;
 
   ${media.laptop`
-    padding-left: 0px;
     margin: 0px;
   `}
 
@@ -31,7 +30,7 @@ const TitleText = styled(Text)`
   margin-right: 8px;
   font-size: 12px;
   font-weight: 600;
-  color: ${props => props.theme.grey600};
+  color: ${(props) => props.theme.grey600};
   line-height: 150%;
 `
 const BalanceDropdown = styled.div`
@@ -53,11 +52,10 @@ const BalanceDropdown = styled.div`
     width: initial;
   }
   > div > div > div > div {
-    color: ${props => props.theme.grey800};
+    color: ${(props) => props.theme.grey800};
     font-weight: 600;
     font-size: 24px;
     ${media.laptop`
-      color: ${props => props.theme.alwaysWhite};
       font-size: 16px;
       padding-right: 4px;
       max-width: 40vw;
@@ -72,23 +70,23 @@ const BalanceDropdown = styled.div`
     top: -6px;
     right: 0;
     font-size: 24px;
-    color: ${props => props.theme.grey400};
-    border: 1px solid ${props => props.theme.grey100};
+    color: ${(props) => props.theme.grey400};
+    border: 1px solid ${(props) => props.theme.grey100};
     border-radius: 4px;
     padding: 0;
     &:hover {
-      border: 1px solid ${props => props.theme.blue600};
-      color: ${props => props.theme.blue600};
+      border: 1px solid ${(props) => props.theme.blue600};
+      color: ${(props) => props.theme.blue600};
     }
 
     ${media.laptop`
       position: static;
       right: initial;
       border: 0px;
-      color: ${props => props.theme.alwaysWhite};
+      color: ${(props) => props.theme.alwaysWhite};
       &:hover {
         border: 0px;
-        color: ${props => props.theme.alwaysWhite};
+        color: ${(props) => props.theme.alwaysWhite};
       }
     `}
   }
@@ -99,21 +97,22 @@ const BalancesContainer = () => {
 
   return (
     <Wrapper>
-      {!isLaptop && (
-        <TitleText data-e2e='totalBalance'>
-          <FormattedMessage
-            id='scenes.wallet.menutop.balance.totalbalance'
-            defaultMessage='Total Balance'
-          />
-        </TitleText>
-      )}
+      <TitleText data-e2e='totalBalance'>
+        <FormattedMessage
+          id='scenes.wallet.menutop.balance.totalbalance'
+          defaultMessage='Total Balance'
+        />
+      </TitleText>
       <BalanceDropdown>
         <ComponentDropdown
           down
           forceSelected
           toggleOnCallback={false}
           selectedComponent={<TotalBalance large />}
-          components={[<WalletBalance />, <CurrencySwitch />]}
+          components={[
+            <WalletBalance key='wallet-balance' />,
+            <CurrencySwitch key='currency-switch' />
+          ]}
         />
       </BalanceDropdown>
     </Wrapper>

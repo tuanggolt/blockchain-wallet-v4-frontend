@@ -1,5 +1,5 @@
-import { Remote } from 'blockchain-wallet-v4/src'
-import { createDeepEqualSelector } from 'blockchain-wallet-v4/src/utils'
+import { Remote } from '@core'
+import { createDeepEqualSelector } from '@core/utils'
 import { selectors } from 'data'
 
 export const getData = createDeepEqualSelector(
@@ -16,8 +16,8 @@ export const getData = createDeepEqualSelector(
     const xlm = xlmR.getOrElse([])
 
     return Remote.of({
-      btc: btc[0],
       bch: bch[0],
+      btc: btc[0],
       eth: eth[0],
       xlm: xlm[0]
     })

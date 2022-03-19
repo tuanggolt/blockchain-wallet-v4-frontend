@@ -2,6 +2,7 @@ import React from 'react'
 import { FormattedMessage } from 'react-intl'
 import styled from 'styled-components'
 
+import { CoinType } from '@core/types'
 import { Button, Text } from 'blockchain-info-components'
 import { media } from 'services/styles'
 
@@ -23,12 +24,7 @@ const BuyTradeButton = styled(Button)`
   }
 `
 
-const Actions = ({
-  coinName,
-  cryptoCurrency,
-  simpleBuyActions,
-  swapActions
-}: Props) => {
+const Actions = ({ buySellActions, coinName, swapActions }: Props) => {
   return (
     <Wrapper>
       <BuyTradeButton
@@ -36,7 +32,10 @@ const Actions = ({
         height='42px'
         nature='primary'
         onClick={() =>
-          simpleBuyActions.showModal('PriceChart', cryptoCurrency, 'BUY')
+          buySellActions.showModal({
+            orderType: 'BUY',
+            origin: 'PriceChart'
+          })
         }
       >
         <Text color='white' size='16px' lineHeight='24px' weight={600}>
@@ -51,7 +50,7 @@ const Actions = ({
         data-e2e='swapButton'
         height='42px'
         nature='empty-secondary'
-        onClick={() => swapActions.showModal('PriceChart')}
+        onClick={() => swapActions.showModal({ origin: 'PriceChart' })}
       >
         <Text color='blue600' size='16px' lineHeight='24px' weight={600}>
           <FormattedMessage

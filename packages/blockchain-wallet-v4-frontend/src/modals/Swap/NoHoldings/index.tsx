@@ -12,6 +12,16 @@ import { actions } from 'data'
 import { Border, IconBackground, TopText } from '../components'
 import { Props as BaseProps } from '../index'
 
+const IconContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+`
+
 const FlexTopRow = styled.div`
   display: flex;
   justify-content: flex-start;
@@ -30,9 +40,9 @@ const DisplayContainer = styled(FlyoutWrapper)`
   box-sizing: border-box;
   padding: 16px 40px;
   flex-direction: row;
-  border-bottom: 1px solid ${props => props.theme.grey000};
+  border-bottom: 1px solid ${(props) => props.theme.grey000};
   transition: background-color 0.3s;
-  ${props =>
+  ${(props) =>
     props.onClick &&
     css`
       cursor: pointer;
@@ -40,53 +50,30 @@ const DisplayContainer = styled(FlyoutWrapper)`
         cursor: pointer;
       }
       &:hover {
-        background-color: ${props => props.theme.blue000};
+        background-color: ${(props) => props.theme.blue000};
       }
     `}
 `
 
-const NoHoldings: React.FC<Props> = ({
-  handleClose,
-  modalActions,
-  simpleBuyActions
-}) => {
+const NoHoldings: React.FC<Props> = ({ buySellActions, handleClose, modalActions }) => {
   return (
     <>
       <FlyoutWrapper>
         <TopText spaceBetween marginBottom>
           <Icon name='arrow-switch-thick' color='blue600' size='24px' />
-          <Icon
-            name='close'
-            color='grey600'
-            role='button'
-            cursor
-            onClick={handleClose}
-          />
+          <Icon name='close' color='grey600' role='button' cursor onClick={handleClose} />
         </TopText>
         <Text size='24px' color='grey900' weight={600}>
-          <FormattedMessage
-            id='copy.swap_your_crypto'
-            defaultMessage='Swap Your Crypto'
-          />
+          <FormattedMessage id='copy.swap_your_crypto' defaultMessage='Swap Your Crypto' />
         </Text>
-        <Text
-          size='16px'
-          color='grey600'
-          weight={500}
-          style={{ marginTop: '10px' }}
-        >
+        <Text size='16px' color='grey600' weight={500} style={{ marginTop: '10px' }}>
           <FormattedMessage
             id='copy.instantly_exchange'
             defaultMessage='Instantly exchange your crypto into any currency we offer in your wallet.'
           />
         </Text>
 
-        <Text
-          size='16px'
-          color='grey800'
-          weight={600}
-          style={{ marginTop: '24px' }}
-        >
+        <Text size='16px' color='grey800' weight={600} style={{ marginTop: '24px' }}>
           <FormattedMessage
             id='swap.no_holdings.own_some_first'
             defaultMessage='But you’ll need to own some first...'
@@ -104,12 +91,14 @@ const NoHoldings: React.FC<Props> = ({
 
       <DisplayContainer
         onClick={() => {
-          simpleBuyActions.showModal('SwapNoHoldings')
+          buySellActions.showModal({ origin: 'SwapNoHoldings' })
         }}
       >
         <FlexTopRow>
           <IconBackground size='32px' style={{ marginRight: '16px' }}>
-            <Icon size='16px' color='blue600' name='credit-card-sb' />
+            <IconContainer>
+              <Icon size='16px' color='blue600' name='credit-card-sb' />
+            </IconContainer>
           </IconBackground>
           <div>
             <Text color='grey900' size='14px' weight={600} lineHeight='150%'>
@@ -126,10 +115,7 @@ const NoHoldings: React.FC<Props> = ({
             </Text>
             <CartridgeContainer>
               <SuccessCartridge>
-                <FormattedMessage
-                  id='copy.most_popular'
-                  defaultMessage='Most Popular'
-                />
+                <FormattedMessage id='copy.most_popular' defaultMessage='Most Popular' />
               </SuccessCartridge>
             </CartridgeContainer>
           </div>
@@ -140,14 +126,14 @@ const NoHoldings: React.FC<Props> = ({
 
       <DisplayContainer
         onClick={() => {
-          simpleBuyActions.showModal('SwapNoHoldings')
+          buySellActions.showModal({ origin: 'SwapNoHoldings' })
         }}
       >
         <FlexTopRow>
           <IconBackground size='32px' style={{ marginRight: '16px' }}>
-            <Text color='blue600' size='20px' weight={600}>
+            <IconContainer>
               <Icon size='16px' color='blue600' name='bank-filled' />
-            </Text>
+            </IconContainer>
           </IconBackground>
           <div>
             <Text color='grey900' size='14px' weight={600} lineHeight='150%'>
@@ -177,9 +163,9 @@ const NoHoldings: React.FC<Props> = ({
       >
         <FlexTopRow>
           <IconBackground size='32px' style={{ marginRight: '16px' }}>
-            <Text color='blue600' size='20px' weight={600}>
+            <IconContainer>
               <Icon size='16px' color='blue600' name='qr-code' />
-            </Text>
+            </IconContainer>
           </IconBackground>
           <div>
             <Text color='grey900' size='14px' weight={600} lineHeight='150%'>
@@ -190,8 +176,14 @@ const NoHoldings: React.FC<Props> = ({
             </Text>
             <Text size='12px' lineHeight='150%' weight={500}>
               <FormattedMessage
-                id='swap.no_holdings.receive_another_wallet.description'
-                defaultMessage='Are you holding crypto on a different wallet? Does a friend want to send you some Bitcoin? Copy & paste or share your unique wallet addresses QR codes.'
+                id='swap.no_holdings.receive_another_wallet.description_1'
+                defaultMessage='Are you holding crypto in a different wallet? Does a friend want to send you some Bitcoin?'
+              />
+            </Text>
+            <Text size='12px' lineHeight='150%' weight={500}>
+              <FormattedMessage
+                id='swap.no_holdings.receive_another_wallet.description_2'
+                defaultMessage='Copy & paste or share your unique wallet addresses QR codes.'
               />
             </Text>
           </div>
@@ -201,8 +193,8 @@ const NoHoldings: React.FC<Props> = ({
   )
 }
 
-const mapDispatchToProps = dispatch => ({
-  simpleBuyActions: bindActionCreators(actions.components.simpleBuy, dispatch),
+const mapDispatchToProps = (dispatch) => ({
+  buySellActions: bindActionCreators(actions.components.buySell, dispatch),
   modalActions: bindActionCreators(actions.modals, dispatch)
 })
 

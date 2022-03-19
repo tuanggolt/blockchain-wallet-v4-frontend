@@ -1,71 +1,85 @@
-import { equals, head, includes, last, path, pathOr, prop, propOr } from 'ramda'
-import {
-  change,
-  destroy,
-  initialize,
-  startSubmit,
-  stopSubmit,
-  touch
-} from 'redux-form'
+import BigNumber from 'bignumber.js'
+import { equals, head, identity, includes, last, path, pathOr, prop, propOr } from 'ramda'
+import { change, destroy, initialize, startSubmit, stopSubmit, touch } from 'redux-form'
 import { call, delay, put, select } from 'redux-saga/effects'
 
-import { Exchange } from 'blockchain-wallet-v4/src'
-import { APIType } from 'blockchain-wallet-v4/src/network/api'
-import { ADDRESS_TYPES } from 'blockchain-wallet-v4/src/redux/payment/btc/utils'
-import {
-  AddressTypesType,
-  CustodialFromType,
-  XlmPaymentType
-} from 'blockchain-wallet-v4/src/types'
-import { errorHandler } from 'blockchain-wallet-v4/src/utils'
-import { actions, model, selectors } from 'data'
-import { ModalNamesType } from 'data/modals/types'
+import { Exchange } from '@core'
+import { APIType } from '@core/network/api'
+import { ADDRESS_TYPES } from '@core/redux/payment/btc/utils'
+import { AddressTypesType, CustodialFromType, WalletAccountEnum, XlmPaymentType } from '@core/types'
+import { errorHandler } from '@core/utils'
+import { actions, selectors } from 'data'
 import * as C from 'services/alerts'
 import * as Lockbox from 'services/lockbox'
 import { promptForSecondPassword } from 'services/sagas'
 
 import sendSagas from '../send/sagas'
+import { emojiRegex } from '../send/types'
 import * as A from './actions'
 import { FORM } from './model'
 import * as S from './selectors'
 
-const { TRANSACTION_EVENTS } = model.analytics
+const coin = 'XLM'
 export const logLocation = 'components/sendXlm/sagas'
 export const INITIAL_MEMO_TYPE = 'text'
-export default ({
-  api,
-  coreSagas,
-  networks
-}: {
-  api: APIType
-  coreSagas: any
-  networks: any
-}) => {
+
+export default ({ api, coreSagas, networks }: { api: APIType; coreSagas: any; networks: any }) => {
   const { showWithdrawalLockAlert } = sendSagas({
     api,
     coreSagas,
     networks
   })
 
-  const initialized = function * (action) {
+  const setFrom = function* (
+    payment: XlmPaymentType,
+    from?: string | CustodialFromType,
+    type?: AddressTypesType,
+    fee?: string
+  ) {
+    let updatedPayment
+    try {
+      switch (type) {
+        case 'CUSTODIAL':
+          const fromCustodialT = from as CustodialFromType
+          yield put(A.showNoAccountForm(false))
+          updatedPayment = yield call(
+            payment.from,
+            fromCustodialT.label,
+            type,
+            new BigNumber(fromCustodialT.withdrawable).minus(fee || '0').toString()
+          )
+          break
+        default:
+          const fromT = from as string
+          updatedPayment = yield call(payment.from, fromT, type)
+          yield put(A.showNoAccountForm(false))
+      }
+      return updatedPayment
+    } catch (e) {
+      const message = prop('message', e)
+      if (message === 'Account does not exist') {
+        yield put(A.showNoAccountForm(true))
+        return payment
+      }
+      throw e
+    }
+  }
+
+  const initialized = function* (action) {
     try {
       const from = path<string | undefined>(['payload', 'from'], action)
       const type = path<AddressTypesType>(['payload', 'type'], action)
       const to = path(['payload', 'to'], action)
       const memo = path(['payload', 'memo'], action)
       yield put(A.paymentUpdatedLoading())
-      yield put(actions.components.send.fetchPaymentsAccountExchange('XLM'))
+      yield put(actions.components.send.fetchPaymentsAccountExchange(coin))
       let payment = coreSagas.payment.xlm.create()
       payment = yield call(payment.init)
       payment = yield call(payment.memoType, INITIAL_MEMO_TYPE)
       payment =
-        from && type
-          ? yield call(setFrom, payment, from, type)
-          : yield call(setFrom, payment)
+        from && type ? yield call(setFrom, payment, from, type) : yield call(setFrom, payment)
       const defaultFee = prop('fee', payment.value())
-      const defaultAccount = (yield select(
-        selectors.core.common.xlm.getAccountBalances
-      ))
+      const defaultAccount = (yield select(selectors.core.common.xlm.getAccountBalances))
         .map(head)
         .getOrElse({})
       if (to) {
@@ -74,14 +88,14 @@ export default ({
       if (memo) {
         payment = yield payment.memo(memo)
       }
-      const prepareTo = to => {
-        return to ? { value: { value: to, label: to } } : null
+      const prepareTo = (to) => {
+        return to ? { value: { label: to, value: to } } : null
       }
       const initialValues = {
-        coin: 'XLM',
+        coin,
         fee: defaultFee,
         from: defaultAccount,
-        memo: memo,
+        memo,
         memoType: INITIAL_MEMO_TYPE,
         to: prepareTo(to)
       }
@@ -93,41 +107,32 @@ export default ({
     }
   }
 
-  const destroyed = function * () {
+  const destroyed = function* () {
     yield put(actions.form.destroy(FORM))
   }
 
-  const formChanged = function * (action) {
+  const formChanged = function* (action) {
     try {
       const form = path(['meta', 'form'], action)
       if (!equals(FORM, form)) return
       const field = path(['meta', 'field'], action)
       const payload = prop('payload', action)
-      const erc20List = (yield select(
-        selectors.core.walletOptions.getErc20CoinList
-      )).getOrElse([])
       let payment: XlmPaymentType = (yield select(S.getPayment)).getOrElse({})
       payment = yield call(coreSagas.payment.xlm.create, { payment })
 
       switch (field) {
-        case 'coin':
-          const modalName = includes(payload, erc20List) ? 'ETH' : payload
-          yield put(actions.modals.closeAllModals())
-          yield put(
-            actions.modals.showModal(
-              `SEND_${modalName}_MODAL` as ModalNamesType,
-              {
-                coin: payload,
-                origin: 'SendXlm'
-              }
-            )
-          )
-          break
         case 'from':
           const source = prop('address', payload) || payload
           const fromType = prop('type', payload)
           if (fromType === 'CUSTODIAL') {
-            payment = yield call(setFrom, payment, payload, fromType)
+            const response: ReturnType<typeof api.getWithdrawalFees> = yield call(
+              api.getWithdrawalFees,
+              'simplebuy',
+              'DEFAULT'
+            )
+            const fee = response.fees.find(({ symbol }) => symbol === coin)?.minorValue || '0'
+            payment = yield call(setFrom, payment, payload, fromType, fee)
+            payment = yield payment.fee(fee)
             yield put(A.paymentUpdatedSuccess(payment.value()))
             yield put(change(FORM, 'to', null))
           } else {
@@ -136,10 +141,19 @@ export default ({
           break
         case 'to':
           // payload may be either an account type (wallet/lockbox) or an address
-          let value = pathOr(payload, ['value', 'value'], payload)
+          const value = pathOr(payload, ['value', 'value'], payload)
           // @ts-ignore
           const splitValue = propOr(value, 'address', value).split(':')
           const address = head(splitValue)
+          if (includes('.', address as unknown as string) || address.match(emojiRegex)) {
+            yield put(
+              actions.components.send.fetchUnstoppableDomainResults(
+                value as unknown as string,
+                coin
+              )
+            )
+            return
+          }
           payment = yield payment.to(address)
           // do not block payment update when to is changed w/ destinationAccount check
           yield put(A.paymentUpdatedSuccess(payment.value()))
@@ -152,14 +166,32 @@ export default ({
             const memo = last(splitValue)
             yield put(actions.form.change(FORM, 'memo', memo))
           }
+          // seamless limits logic
+          const { from } = yield select(selectors.form.getFormValues(FORM))
+          if (from.type === ADDRESS_TYPES.CUSTODIAL) {
+            const appState = yield select(identity)
+            const currency = selectors.core.settings
+              .getCurrency(appState)
+              .getOrFail('Failed to get currency')
+            yield put(
+              A.sendXlmFetchLimits(
+                coin,
+                WalletAccountEnum.CUSTODIAL,
+                coin,
+                WalletAccountEnum.NON_CUSTODIAL,
+                currency
+              )
+            )
+          }
+
           return
         case 'amount':
           const xlmAmount = prop('coin', payload)
-          const stroopAmount = Exchange.convertXlmToXlm({
-            value: xlmAmount,
-            fromUnit: 'XLM',
-            toUnit: 'STROOP'
-          }).value
+          const stroopAmount = Exchange.convertCoinToCoin({
+            baseToStandard: false,
+            coin,
+            value: xlmAmount
+          })
           payment = yield call(payment.amount, stroopAmount)
           break
         case 'description':
@@ -171,6 +203,8 @@ export default ({
         case 'memoType':
           payment = yield call(payment.memoType, payload)
           break
+        default:
+          break
       }
 
       yield put(A.paymentUpdatedSuccess(payment.value()))
@@ -179,7 +213,7 @@ export default ({
     }
   }
 
-  const checkAccountExistence = function * (id) {
+  const checkAccountExistence = function* (id) {
     try {
       yield call(api.getXlmAccount, id)
       return true
@@ -188,7 +222,7 @@ export default ({
     }
   }
 
-  const checkIfDestinationIsExchange = function * ({ payload }) {
+  const checkIfDestinationIsExchange = function* ({ payload }) {
     try {
       yield put(A.sendXlmCheckIfDestinationIsExchangeLoading())
       const exchangeAddresses = (yield select(
@@ -201,42 +235,53 @@ export default ({
     }
   }
 
-  const checkDestinationAccountExists = function * ({ payload }) {
+  const checkDestinationAccountExists = function* ({ payload }) {
     try {
       yield put(A.sendXlmCheckDestinationAccountExistsLoading())
-      const destinationAccountExists = yield call(
-        checkAccountExistence,
-        payload
-      )
+      const destinationAccountExists = yield call(checkAccountExistence, payload)
 
       let payment = (yield select(S.getPayment)).getOrElse({})
       payment = yield call(coreSagas.payment.xlm.create, { payment })
-      payment = yield payment.setDestinationAccountExists(
-        destinationAccountExists
-      )
+      payment = yield payment.setDestinationAccountExists(destinationAccountExists)
 
       yield put(A.paymentUpdatedSuccess(payment.value()))
-      yield put(
-        A.sendXlmCheckDestinationAccountExistsSuccess(destinationAccountExists)
-      )
+      yield put(A.sendXlmCheckDestinationAccountExistsSuccess(destinationAccountExists))
     } catch (e) {
       yield put(A.sendXlmCheckDestinationAccountExistsFailure(e))
     }
   }
+  const setAmount = function* (amount: string) {
+    const currency = (yield select(selectors.core.settings.getCurrency)).getOrFail(
+      'Can not retrieve currency.'
+    )
+    const xlmRates = selectors.core.data.coins
+      .getRates('XLM', yield select())
+      .getOrFail('Can not retrieve stellar rates.')
+    const coinAmount = Exchange.convertCoinToCoin({
+      baseToStandard: false,
+      coin,
+      value: amount
+    })
+    const fiat = Exchange.convertCoinToFiat({
+      coin,
+      currency,
+      rates: xlmRates,
+      value: amount
+    })
+    yield put(change(FORM, 'amount', { coin: coinAmount, fiat }))
+  }
 
-  const maximumAmountClicked = function * () {
+  const maximumAmountClicked = function* () {
     try {
       const payment = (yield select(S.getPayment)).getOrElse({})
       const effectiveBalance = prop('effectiveBalance', payment)
       yield call(setAmount, effectiveBalance)
     } catch (e) {
-      yield put(
-        actions.logs.logErrorMessage(logLocation, 'maximumAmountClicked', e)
-      )
+      yield put(actions.logs.logErrorMessage(logLocation, 'maximumAmountClicked', e))
     }
   }
 
-  const firstStepSubmitClicked = function * () {
+  const firstStepSubmitClicked = function* () {
     try {
       let payment = (yield select(S.getPayment)).getOrElse({})
       yield put(A.paymentUpdatedLoading())
@@ -245,13 +290,11 @@ export default ({
       yield put(A.paymentUpdatedSuccess(payment.value()))
     } catch (e) {
       yield put(A.paymentUpdatedFailure(e))
-      yield put(
-        actions.logs.logErrorMessage(logLocation, 'firstStepSubmitClicked', e)
-      )
+      yield put(actions.logs.logErrorMessage(logLocation, 'firstStepSubmitClicked', e))
     }
   }
 
-  const secondStepSubmitClicked = function * () {
+  const secondStepSubmitClicked = function* () {
     yield put(startSubmit(FORM))
     let payment = (yield select(S.getPayment)).getOrElse({})
     payment = yield call(coreSagas.payment.xlm.create, { payment })
@@ -261,7 +304,7 @@ export default ({
     try {
       // Sign payment
       if (fromType !== ADDRESS_TYPES.LOCKBOX) {
-        let password = yield call(promptForSecondPassword)
+        const password = yield call(promptForSecondPassword)
         if (fromType !== ADDRESS_TYPES.CUSTODIAL) {
           payment = yield call(payment.sign, password)
         }
@@ -271,12 +314,10 @@ export default ({
           fromAddress
         )).getOrFail('missing_device')
         const deviceType = prop('device_type', device)
-        yield call(Lockbox.promptForLockbox, 'XLM', deviceType, [toAddress])
-        let connection = yield select(
-          selectors.components.lockbox.getCurrentConnection
-        )
+        yield call(Lockbox.promptForLockbox, coin, deviceType, [toAddress])
+        const connection = yield select(selectors.components.lockbox.getCurrentConnection)
         const transport = prop('transport', connection)
-        const scrambleKey = Lockbox.utils.getScrambleKey('XLM', deviceType)
+        const scrambleKey = Lockbox.utils.getScrambleKey(coin, deviceType)
         payment = yield call(payment.sign, null, transport, scrambleKey)
       }
       const value: ReturnType<XlmPaymentType['value']> = payment.value()
@@ -284,17 +325,15 @@ export default ({
       if (fromType === 'CUSTODIAL') {
         if (!value.to) throw new Error('missing_to_from_custodial')
         if (!value.amount) throw new Error('missing_amount_from_custodial')
-        api.withdrawSBFunds(value.to.address, 'XLM', value.amount)
+        const address = value.memo ? `${value.to.address}:${value.memo}` : value.to.address
+        api.withdrawBSFunds(address, coin, value.amount)
       } else {
         payment = yield call(payment.publish)
       }
       yield put(actions.core.data.xlm.fetchData())
       yield put(A.paymentUpdatedSuccess(value))
-      const description = value.description
-      if (description)
-        yield put(
-          actions.core.kvStore.xlm.setTxNotesXlm(value.txId, description)
-        )
+      const { description } = value
+      if (description) yield put(actions.core.kvStore.xlm.setTxNotesXlm(value.txId, description))
       // Display success
       if (fromType === ADDRESS_TYPES.LOCKBOX) {
         yield put(actions.components.lockbox.setConnectionSuccess())
@@ -314,17 +353,15 @@ export default ({
         )
       }
       yield put(destroy(FORM))
-      yield put(
-        actions.analytics.logEvent([
-          ...TRANSACTION_EVENTS.SEND,
-          'XLM',
-          Exchange.convertCoinToCoin({
-            value: payment.value().amount,
-            coin: 'XLM',
-            baseToStandard: true
-          }).value
-        ])
-      )
+      const coinAmount = Exchange.convertCoinToCoin({
+        coin,
+        value: payment.value().amount
+      })
+      // triggers email notification to user that
+      // non-custodial funds were sent from the wallet
+      if (fromType === ADDRESS_TYPES.ACCOUNT) {
+        yield put(actions.core.wallet.triggerNonCustodialSendAlert(coin, coinAmount))
+      }
       yield put(actions.modals.closeAllModals())
     } catch (e) {
       yield put(stopSubmit(FORM))
@@ -333,20 +370,7 @@ export default ({
       if (fromType === ADDRESS_TYPES.LOCKBOX) {
         yield put(actions.components.lockbox.setConnectionError(e))
       } else {
-        yield put(
-          actions.logs.logErrorMessage(
-            logLocation,
-            'secondStepSubmitClicked',
-            e
-          )
-        )
-        yield put(
-          actions.analytics.logEvent([
-            ...TRANSACTION_EVENTS.SEND_FAILURE,
-            'XLM',
-            e
-          ])
-        )
+        yield put(actions.logs.logErrorMessage(logLocation, 'secondStepSubmitClicked', e))
         if (fromType === ADDRESS_TYPES.CUSTODIAL && error) {
           if (error === 'Pending withdrawal locks') {
             yield call(showWithdrawalLockAlert)
@@ -364,70 +388,34 @@ export default ({
     }
   }
 
-  const setAmount = function * (amount: string) {
-    const currency = (yield select(
-      selectors.core.settings.getCurrency
-    )).getOrFail('Can not retrieve currency.')
-    const xlmRates = (yield select(selectors.core.data.xlm.getRates)).getOrFail(
-      'Can not retrieve stellar rates.'
-    )
-    const coin = Exchange.convertXlmToXlm({
-      value: amount,
-      fromUnit: 'STROOP',
-      toUnit: 'XLM'
-    }).value
-    const fiat = Exchange.convertXlmToFiat({
-      value: amount,
-      fromUnit: 'STROOP',
-      toCurrency: currency,
-      rates: xlmRates
-    }).value
-    yield put(change(FORM, 'amount', { coin, fiat }))
-  }
-
-  const setFrom = function * (
-    payment: XlmPaymentType,
-    from?: string | CustodialFromType,
-    type?: AddressTypesType
-  ) {
-    let updatedPayment
+  const fetchSendLimits = function* ({ payload }: ReturnType<typeof A.sendXlmFetchLimits>) {
+    const { currency, fromAccount, inputCurrency, outputCurrency, toAccount } = payload
     try {
-      switch (type) {
-        case 'CUSTODIAL':
-          const fromCustodialT = from as CustodialFromType
-          yield put(A.showNoAccountForm(false))
-          updatedPayment = yield call(
-            payment.from,
-            fromCustodialT.label,
-            type,
-            fromCustodialT.withdrawable
-          )
-          break
-        default:
-          const fromT = from as string
-          updatedPayment = yield call(payment.from, fromT, type)
-          yield put(A.showNoAccountForm(false))
-      }
-      return updatedPayment
+      yield put(A.sendXlmFetchLimitsLoading())
+      const limitsResponse: ReturnType<typeof api.getCrossBorderTransactions> = yield call(
+        api.getCrossBorderTransactions,
+        inputCurrency,
+        fromAccount,
+        outputCurrency,
+        toAccount,
+        currency
+      )
+      yield put(A.sendXlmFetchLimitsSuccess(limitsResponse))
     } catch (e) {
-      const message = prop('message', e)
-      if (message === 'Account does not exist') {
-        yield put(A.showNoAccountForm(true))
-        return payment
-      }
-      throw e
+      yield put(A.sendXlmFetchLimitsFailure(e))
     }
   }
 
   return {
-    initialized,
     checkDestinationAccountExists,
     checkIfDestinationIsExchange,
     destroyed,
+    fetchSendLimits,
     firstStepSubmitClicked,
+    formChanged,
+    initialized,
     maximumAmountClicked,
     secondStepSubmitClicked,
-    formChanged,
     setAmount,
     setFrom
   }

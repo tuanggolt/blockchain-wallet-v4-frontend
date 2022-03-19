@@ -2,7 +2,7 @@ import React, { PureComponent } from 'react'
 import { connect, ConnectedProps } from 'react-redux'
 import { bindActionCreators } from 'redux'
 
-import { ExtractSuccess } from 'blockchain-wallet-v4/src/types'
+import { ExtractSuccess } from '@core/types'
 import DataError from 'components/DataError'
 import { actions, model, selectors } from 'data'
 import { CountryType } from 'data/components/identityVerification/types'
@@ -18,14 +18,6 @@ const { INFO_AND_RESIDENTIAL_FORM } = model.components.identityVerification
 class InfoAndResidential extends PureComponent<Props> {
   componentDidMount() {
     this.fetchData()
-
-    this.props.analyticsActions.logEvent([
-      'INFO_AND_RESIDENTIAL',
-      JSON.stringify({
-        countryCode: this.props.countryCode,
-        infoAndResidential: 'page init'
-      })
-    ])
   }
 
   fetchData = () => {
@@ -34,22 +26,11 @@ class InfoAndResidential extends PureComponent<Props> {
   }
 
   handleSubmit = () => {
-    const {
-      checkSddEligibility,
-      identityVerificationActions,
-      onCompletionCallback
-    } = this.props
+    const { checkSddEligibility, identityVerificationActions, onCompletionCallback } = this.props
     identityVerificationActions.saveInfoAndResidentialData(
       checkSddEligibility,
       onCompletionCallback
     )
-    this.props.analyticsActions.logEvent([
-      'INFO_AND_RESIDENTIAL',
-      JSON.stringify({
-        countryCode: this.props.countryCode,
-        infoAndResidential: 'page submit'
-      })
-    ])
   }
 
   onCountryChange = (e, value) => {
@@ -58,17 +39,15 @@ class InfoAndResidential extends PureComponent<Props> {
 
   setDefaultCountry = (country: CountryType) => {
     this.props.formActions.change(INFO_AND_RESIDENTIAL_FORM, 'country', country)
-    this.props.formActions.clearFields(
-      INFO_AND_RESIDENTIAL_FORM,
-      false,
-      false,
-      'state'
-    )
+    this.props.formActions.clearFields(INFO_AND_RESIDENTIAL_FORM, false, false, 'state')
   }
 
   render() {
     return this.props.data.cata({
-      Success: val => (
+      Failure: () => <DataError onClick={this.fetchData} />,
+      Loading: () => <Loading />,
+      NotAsked: () => <Loading />,
+      Success: (val) => (
         <Success
           {...this.props}
           {...val}
@@ -79,29 +58,22 @@ class InfoAndResidential extends PureComponent<Props> {
             ...val.userData
           }}
         />
-      ),
-      Failure: () => <DataError onClick={this.fetchData} />,
-      Loading: () => <Loading />,
-      NotAsked: () => <Loading />
+      )
     })
   }
 }
 
 const mapStateToProps = (state: RootState) => ({
+  countryCode: selectors.core.settings.getCountryCode(state).getOrElse(null),
   data: getData(state),
   formValues: selectors.form.getFormValues(INFO_AND_RESIDENTIAL_FORM)(state) as
     | InfoAndResidentialFormValuesType
-    | undefined,
-  countryCode: selectors.core.settings.getCountryCode(state).getOrElse(null)
+    | undefined
 })
 
-const mapDispatchToProps = dispatch => ({
-  analyticsActions: bindActionCreators(actions.analytics, dispatch),
-  identityVerificationActions: bindActionCreators(
-    actions.components.identityVerification,
-    dispatch
-  ),
-  formActions: bindActionCreators(actions.form, dispatch)
+const mapDispatchToProps = (dispatch) => ({
+  formActions: bindActionCreators(actions.form, dispatch),
+  identityVerificationActions: bindActionCreators(actions.components.identityVerification, dispatch)
 })
 
 const connector = connect(mapStateToProps, mapDispatchToProps)

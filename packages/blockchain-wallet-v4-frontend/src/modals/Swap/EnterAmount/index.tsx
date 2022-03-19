@@ -3,35 +3,24 @@ import { FormattedMessage } from 'react-intl'
 import { connect, ConnectedProps } from 'react-redux'
 import styled from 'styled-components'
 
-import {
-  CoinAccountIcon,
-  Icon,
-  SpinningLoader,
-  Text
-} from 'blockchain-info-components'
-import { formatCoin } from 'blockchain-wallet-v4/src/exchange/currency'
-import { ExtractSuccess } from 'blockchain-wallet-v4/src/types'
+import { formatCoin } from '@core/exchange/utils'
+import { CrossBorderLimitsPayload, ExtractSuccess, WalletAccountEnum } from '@core/types'
+import { CoinAccountIcon, Icon, SpinningLoader, Text } from 'blockchain-info-components'
 import { FlyoutWrapper } from 'components/Flyout'
-import { selectors } from 'data'
+import { actions, selectors } from 'data'
 import { RootState } from 'data/rootReducer'
 import {
   InitSwapFormValuesType,
   SwapAccountType,
+  SwapBaseCounterTypes,
   SwapCoinType
 } from 'data/types'
-import checkAccountZeroBalance from 'services/CheckAccountZeroBalance'
 
 import { Props as BaseProps, SuccessStateType as SuccessType } from '..'
-import {
-  BalanceRow,
-  Border,
-  Option,
-  OptionTitle,
-  OptionValue,
-  TopText
-} from '../components'
+import { BalanceRow, Border, Option, OptionTitle, OptionValue, TopText } from '../components'
+import { checkAccountZeroBalance } from '../model'
 import Checkout from './Checkout'
-import { getData } from './selectors'
+import getData from './selectors'
 import Failure from './template.failure'
 import Loading from './template.loading'
 import Upgrade from './template.upgrade'
@@ -48,8 +37,8 @@ const Toggler = styled.div`
   transform: translateY(-50%);
   position: absolute;
   border-radius: 4px;
-  border: 1px solid ${props => props.theme['grey000']};
-  background: ${props => props.theme['white']};
+  border: 1px solid ${(props) => props.theme.grey000};
+  background: ${(props) => props.theme.white};
   right: 33px;
   display: flex;
   cursor: pointer;
@@ -69,11 +58,31 @@ const Toggler = styled.div`
 class EnterAmount extends PureComponent<Props> {
   componentDidMount() {
     this.props.swapActions.initAmountForm()
+
+    if (this.props?.initSwapFormValues?.BASE && this.props?.initSwapFormValues?.COUNTER) {
+      const { BASE, COUNTER } = this.props.initSwapFormValues
+
+      // fetch crossborder limits
+      const fromAccount =
+        BASE.type === SwapBaseCounterTypes.CUSTODIAL
+          ? WalletAccountEnum.CUSTODIAL
+          : WalletAccountEnum.NON_CUSTODIAL
+      const toAccount =
+        COUNTER.type === SwapBaseCounterTypes.CUSTODIAL
+          ? WalletAccountEnum.CUSTODIAL
+          : WalletAccountEnum.NON_CUSTODIAL
+      const inputCurrency = BASE.coin
+      const outputCurrency = COUNTER.coin
+      this.props.swapActions.fetchCrossBorderLimits({
+        fromAccount,
+        inputCurrency,
+        outputCurrency,
+        toAccount
+      } as CrossBorderLimitsPayload)
+    }
   }
 
-  handleStepCoinSelection = (
-    accounts: { [key in SwapCoinType]: Array<SwapAccountType> }
-  ) => {
+  handleStepCoinSelection = (accounts: { [key in SwapCoinType]: Array<SwapAccountType> }) => {
     const isAccountZeroBalance = checkAccountZeroBalance(accounts)
 
     if (isAccountZeroBalance) {
@@ -82,25 +91,24 @@ class EnterAmount extends PureComponent<Props> {
       })
     } else {
       this.props.swapActions.setStep({
-        step: 'COIN_SELECTION',
         options: {
           side: 'BASE'
-        }
+        },
+        step: 'COIN_SELECTION'
       })
     }
   }
 
   render() {
-    if (
-      !this.props.initSwapFormValues?.BASE ||
-      !this.props.initSwapFormValues?.COUNTER
-    ) {
+    if (!this.props.initSwapFormValues?.BASE || !this.props.initSwapFormValues?.COUNTER) {
       return this.props.swapActions.setStep({ step: 'INIT_SWAP' })
     }
 
     const { BASE, COUNTER } = this.props.initSwapFormValues
-    // @ts-ignore
-    const { coins, userData } = this.props
+    const { userData } = this.props
+
+    const { coinfig: baseCoinfig } = window.coins[BASE.coin]
+    const { coinfig: counterCoinfig } = window.coins[COUNTER.coin]
 
     return (
       <>
@@ -119,38 +127,29 @@ class EnterAmount extends PureComponent<Props> {
                   })
                 }
               />{' '}
-              <Text
-                size='20px'
-                color='grey900'
-                weight={600}
-                style={{ marginLeft: '16px' }}
-              >
-                <FormattedMessage
-                  id='copy.new_swap'
-                  defaultMessage='New Swap'
-                />
+              <Text size='20px' color='grey900' weight={600} style={{ marginLeft: '16px' }}>
+                <FormattedMessage id='copy.new_swap' defaultMessage='New Swap' />
               </Text>
             </SubTopText>
             {this.props.quoteR.cata({
-              Success: val => (
-                <Text size='14px' color='grey900' weight={500}>
-                  1 {coins[BASE.coin].coinTicker} = {formatCoin(val.rate)}{' '}
-                  {coins[COUNTER.coin].coinTicker}
-                </Text>
-              ),
               Failure: () => null,
-              Loading: () => (
-                <SpinningLoader borderWidth='4px' height='14px' width='14px' />
-              ),
-              NotAsked: () => (
-                <SpinningLoader borderWidth='4px' height='14px' width='14px' />
+              Loading: () => <SpinningLoader borderWidth='4px' height='14px' width='14px' />,
+              NotAsked: () => <SpinningLoader borderWidth='4px' height='14px' width='14px' />,
+              Success: (val) => (
+                <Text size='14px' color='grey900' weight={500}>
+                  1 {baseCoinfig.displaySymbol} = {formatCoin(val.rate)}{' '}
+                  {counterCoinfig.displaySymbol}
+                </Text>
               )
             })}
           </TopText>
         </FlyoutWrapper>
         <div>
           {this.props.data.cata({
-            Success: val => (
+            Failure: (e) => <Failure {...this.props} error={e} />,
+            Loading: () => <Loading />,
+            NotAsked: () => <Loading />,
+            Success: (val) => (
               <>
                 <Options>
                   <Option
@@ -160,26 +159,20 @@ class EnterAmount extends PureComponent<Props> {
                   >
                     <div>
                       <Text color='grey600' weight={500} size='14px'>
-                        <FormattedMessage
-                          id='copy.swap'
-                          defaultMessage='Swap'
-                        />
+                        <FormattedMessage id='copy.swap' defaultMessage='Swap' />
                       </Text>
                       <OptionTitle>{BASE.label}</OptionTitle>
                       <OptionValue>
                         <BalanceRow>
                           {val.formValues?.amount
                             ? `${formatCoin(val.formValues.cryptoAmount)} ${
-                                coins[BASE.coin].coinTicker
+                                baseCoinfig.displaySymbol
                               }`
-                            : `0 ${coins[BASE.coin].coinTicker}`}
+                            : `0 ${baseCoinfig.displaySymbol}`}
                         </BalanceRow>
                       </OptionValue>
                     </div>
-                    <CoinAccountIcon
-                      accountType={BASE.type}
-                      coin={coins[BASE.coin].coinCode}
-                    />
+                    <CoinAccountIcon accountType={BASE.type} coin={BASE.coin} />
                   </Option>
                   <Toggler
                     onClick={this.props.swapActions.toggleBaseAndCounter}
@@ -193,10 +186,10 @@ class EnterAmount extends PureComponent<Props> {
                     data-e2e='selectToAcct'
                     onClick={() =>
                       this.props.swapActions.setStep({
-                        step: 'COIN_SELECTION',
                         options: {
                           side: 'COUNTER'
-                        }
+                        },
+                        step: 'COIN_SELECTION'
                       })
                     }
                   >
@@ -212,31 +205,20 @@ class EnterAmount extends PureComponent<Props> {
                         <BalanceRow>
                           {val.formValues?.amount
                             ? `${formatCoin(val.incomingAmount.amt)} ${
-                                coins[COUNTER.coin].coinTicker
+                                counterCoinfig.displaySymbol
                               }`
-                            : `0 ${coins[COUNTER.coin].coinTicker}`}
+                            : `0 ${counterCoinfig.displaySymbol}`}
                         </BalanceRow>
                       </OptionValue>
                     </div>
-                    <CoinAccountIcon
-                      accountType={COUNTER.type}
-                      coin={coins[COUNTER.coin].coinCode}
-                    />
+                    <CoinAccountIcon accountType={COUNTER.type} coin={COUNTER.coin} />
                   </Option>
                   <Border />
                 </Options>
-                <Checkout
-                  {...val}
-                  {...this.props}
-                  BASE={BASE}
-                  COUNTER={COUNTER}
-                />
+                <Checkout {...val} {...this.props} BASE={BASE} COUNTER={COUNTER} />
                 {userData.tiers.current === 1 && <Upgrade {...this.props} />}
               </>
-            ),
-            Failure: e => <Failure {...this.props} error={e} />,
-            Loading: () => <Loading />,
-            NotAsked: () => <Loading />
+            )
           })}
         </div>
       </>
@@ -247,20 +229,36 @@ class EnterAmount extends PureComponent<Props> {
 const mapStateToProps = (state: RootState) => {
   return {
     data: getData(state),
-    initSwapFormValues: selectors.form.getFormValues('initSwap')(
-      state
-    ) as InitSwapFormValuesType,
+    initSwapFormValues: selectors.form.getFormValues('initSwap')(state) as InitSwapFormValuesType,
+    isPristine: selectors.form.isPristine('swapAmount')(state),
     quoteR: selectors.components.swap.getQuote(state)
   }
 }
 
-const connector = connect(mapStateToProps)
+const mapDispatchToProps = (dispatch) => ({
+  verifyIdentity: () =>
+    dispatch(
+      actions.components.identityVerification.verifyIdentity({
+        needMoreInfo: false,
+        origin: 'Swap',
+        tier: 2
+      })
+    )
+})
+
+const connector = connect(mapStateToProps, mapDispatchToProps)
 
 type OwnProps = BaseProps & { handleClose: () => void }
 export type Props = OwnProps & SuccessType & ConnectedProps<typeof connector>
 export type SuccessStateType = ExtractSuccess<ReturnType<typeof getData>> & {
   formErrors: {
-    amount?: 'ABOVE_MAX' | 'BELOW_MIN' | 'NEGATIVE_INCOMING_AMT' | boolean
+    amount?:
+      | 'ABOVE_MAX'
+      | 'BELOW_MIN'
+      | 'NEGATIVE_INCOMING_AMT'
+      | 'ABOVE_MAX_LIMIT'
+      | 'ABOVE_BALANCE'
+      | boolean
   }
 }
 

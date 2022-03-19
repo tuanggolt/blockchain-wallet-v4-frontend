@@ -2,7 +2,7 @@ import React from 'react'
 import { connect, ConnectedProps } from 'react-redux'
 import { bindActionCreators } from 'redux'
 
-import { ExtractSuccess } from 'blockchain-wallet-v4/src/types'
+import { ExtractSuccess } from '@core/types'
 import { actions } from 'data'
 
 import { getData } from './selectors'
@@ -15,21 +15,20 @@ class MenuLeftContainer extends React.PureComponent<Props> {
     const { data } = this.props
 
     return data.cata({
-      Success: val => <MenuLeft {...val} {...this.props} />,
+      Failure: () => <Failure />,
       Loading: () => <Loading />,
       NotAsked: () => <Loading />,
-      Failure: () => <Failure />
+      Success: (val) => <MenuLeft {...val} {...this.props} />
     })
   }
 }
 
-const mapStateToProps = state => ({
+const mapStateToProps = (state) => ({
   data: getData(state)
 })
 
-const mapDispatchToProps = dispatch => ({
-  modalActions: bindActionCreators(actions.modals, dispatch),
-  analyticsActions: bindActionCreators(actions.analytics, dispatch)
+const mapDispatchToProps = (dispatch) => ({
+  modalActions: bindActionCreators(actions.modals, dispatch)
 })
 
 const connector = connect(mapStateToProps, mapDispatchToProps)

@@ -1,22 +1,15 @@
 import { nth } from 'ramda'
 import { select } from 'redux-saga/effects'
 
-import { Exchange, utils } from 'blockchain-wallet-v4/src'
-import { PaymentValue } from 'blockchain-wallet-v4/src/redux/payment/types'
-import {
-  CoinType,
-  CurrenciesType,
-  RatesType
-} from 'blockchain-wallet-v4/src/types'
+import { utils } from '@core'
+import { PaymentValue } from '@core/redux/payment/types'
 import { selectors } from 'data'
 
 const { isCashAddr, toCashAddr } = utils.bch
 
 // retrieves default account/address
-export const getDefaultAccount = function * () {
-  const bchAccountsR = yield select(
-    selectors.core.common.bch.getAccountsBalances
-  )
+export const getDefaultAccount = function* () {
+  const bchAccountsR = yield select(selectors.core.common.bch.getAccountsBalances)
   const bchDefaultIndex = (yield select(
     selectors.core.kvStore.bch.getDefaultAccountIndex
   )).getOrElse(0)
@@ -24,11 +17,10 @@ export const getDefaultAccount = function * () {
 }
 
 // retrieves the next receive address
-export const getNextReceiveAddress = function * (coin, networks) {
+export const getNextReceiveAddress = function* (_, networks, index) {
   const state = yield select()
-  const defaultAccountIndex = (yield select(
-    selectors.core.kvStore.bch.getDefaultAccountIndex
-  )).getOrFail()
+  const defaultAccountIndex =
+    index || (yield select(selectors.core.kvStore.bch.getDefaultAccountIndex)).getOrFail()
   const nextAddress = selectors.core.common.bch
     .getNextAvailableReceiveAddress(networks.bch, defaultAccountIndex, state)
     .getOrFail('Failed to get BCH receive address')
@@ -37,28 +29,9 @@ export const getNextReceiveAddress = function * (coin, networks) {
 }
 
 // gets or updates a provisional payment
-export const getOrUpdateProvisionalPayment = function * (
-  coreSagas,
-  networks,
-  paymentR
-) {
+export const getOrUpdateProvisionalPayment = function* (coreSagas, networks, paymentR) {
   return yield coreSagas.payment.bch.create({
-    payment: paymentR.getOrElse(<PaymentValue>{}),
-    network: networks.bch
+    network: networks.bch,
+    payment: paymentR.getOrElse(<PaymentValue>{})
   })
-}
-
-// converts base unit (SAT) to fiat
-export const convertFromBaseUnitToFiat = function(
-  coin: CoinType,
-  baseUnitValue: number | string,
-  userCurrency: keyof CurrenciesType,
-  rates: RatesType
-): number {
-  return Exchange.convertBchToFiat({
-    value: baseUnitValue,
-    fromUnit: 'SAT',
-    toCurrency: userCurrency,
-    rates
-  }).value
 }

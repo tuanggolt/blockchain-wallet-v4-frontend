@@ -1,10 +1,11 @@
 import React from 'react'
 import styled from 'styled-components'
 
-import { media, useMedia } from 'services/styles'
+import { media } from 'services/styles'
 
 import { Props as OwnProps, SuccessStateType } from '.'
 import Balances from './Balances'
+import FundsOnHold from './FundsOnHold'
 import Navigation from './Navigation'
 
 export const Container = styled.div<{ toggled?: boolean }>`
@@ -12,13 +13,13 @@ export const Container = styled.div<{ toggled?: boolean }>`
   position: absolute;
   flex-direction: column;
   justify-content: space-between;
-  left: ${props => (props.toggled ? '0' : '-250px')};
+  left: ${(props) => (props.toggled ? '0' : '-250px')};
   width: 250px;
   height: 100%;
   padding: 8px;
   overflow: scroll;
   box-sizing: border-box;
-  background: ${props => props.theme.white};
+  background: ${(props) => props.theme.white};
   transition: left 0.3s ease-in-out;
   z-index: 11;
   ::-webkit-scrollbar {
@@ -43,10 +44,13 @@ const Overflow = styled.div`
 `
 
 const MenuLeft = (props: Props) => {
-  const isLaptop = useMedia('laptop')
+  const userTier = props.userData?.tiers?.current
+  const isTier2 = userTier >= 2
+
   return (
     <Container toggled={props.menuOpened}>
-      {!isLaptop && <Balances />}
+      <Balances />
+      {isTier2 && props.withdrawalLocksFundsOnHold && <FundsOnHold />}
       <Overflow>
         <Navigation {...props} />
       </Overflow>

@@ -2,7 +2,7 @@ import React, { useEffect } from 'react'
 import { connect, ConnectedProps } from 'react-redux'
 import { bindActionCreators } from 'redux'
 
-import { TimeRange } from 'blockchain-wallet-v4/src/types'
+import { TimeRange } from '@core/types'
 import { actions } from 'data'
 
 import { getData } from './selectors'
@@ -20,9 +20,9 @@ const TimeFilter = ({ actions, time }: Props) => {
   return <Tabs currentTab={time} handleClick={handleClick} />
 }
 
-const mapStateToProps = state => getData(state)
+const mapStateToProps = (state) => getData(state)
 
-const mapDispatchToProps = dispatch => ({
+const mapDispatchToProps = (dispatch) => ({
   actions: bindActionCreators(actions.components.priceChart, dispatch)
 })
 

@@ -2,18 +2,16 @@ import React from 'react'
 import { FormattedMessage } from 'react-intl'
 import { add, lift, prop, propEq } from 'ramda'
 
-import { coreSelectors } from 'blockchain-wallet-v4/src'
-import { ADDRESS_TYPES } from 'blockchain-wallet-v4/src/redux/payment/btc/utils'
-import { ExtractSuccess } from 'blockchain-wallet-v4/src/remote/types'
-import { createDeepEqualSelector } from 'blockchain-wallet-v4/src/utils'
-import { CoinType } from 'core/types'
+import { coreSelectors } from '@core'
+import { ADDRESS_TYPES } from '@core/redux/payment/btc/utils'
+import { ExtractSuccess } from '@core/remote/types'
+import { CoinType } from '@core/types'
+import { createDeepEqualSelector } from '@core/utils'
 import { CoinAccountSelectorType } from 'data/coins/types'
-import {
-  generateInterestAccount,
-  generateTradingAccount
-} from 'data/coins/utils'
+import { generateInterestAccount, generateTradingAccount } from 'data/coins/utils'
+import { SwapAccountType } from 'data/types'
 
-import { getInterestBalance, getTradingBalance } from '../'
+import { getInterestBalance, getTradingBalance } from '..'
 
 // retrieves introduction text for coin on its transaction page
 export const getTransactionPageHeaderText = () => (
@@ -34,14 +32,7 @@ export const getAccounts = createDeepEqualSelector(
     (state, { coin }) => getInterestBalance(coin, state), // custodial accounts
     (state, ownProps): CoinAccountSelectorType & { coin: CoinType } => ownProps // selector config
   ],
-  (
-    btcAccounts,
-    btcDataR,
-    importedAddressesR,
-    sbBalanceR,
-    interestBalanceR,
-    ownProps
-  ) => {
+  (btcAccounts, btcDataR, importedAddressesR, sbBalanceR, interestBalanceR, ownProps) => {
     const transform = (
       btcData,
       importedAddresses,
@@ -49,30 +40,21 @@ export const getAccounts = createDeepEqualSelector(
       interestBalance: ExtractSuccess<typeof interestBalanceR>
     ) => {
       const { coin } = ownProps
-      let accounts = []
+      let accounts: SwapAccountType[] = []
       // add non-custodial accounts if requested
       if (ownProps?.nonCustodialAccounts) {
         // each account has a derivations object with legacy xpub and segwit xpub
         // need to extract each xpub for balance
-        const xpubArray = acc =>
-          prop('derivations', acc).map(derr => prop('xpub', derr))
-        const xpubBalance = acc =>
-          xpubArray(acc).map(xpub =>
-            prop<string, any>('final_balance', prop(xpub, btcData))
-          )
+        const xpubArray = (acc) => prop('derivations', acc).map((derr) => prop('xpub', derr))
+        const xpubBalance = (acc) =>
+          xpubArray(acc).map((xpub) => prop<string, any>('final_balance', prop(xpub, btcData)))
         accounts = accounts.concat(
           btcAccounts
-            .map(acc => ({
+            .map((acc) => ({
               accountIndex: prop('index', acc),
               address: prop('index', acc),
               archived: prop('archived', acc),
-              // TODO: SEGWIT remove w/ DEPRECATED_V3
-              balance: acc.derivations
-                ? xpubBalance(acc).reduce(add, 0)
-                : prop<string, any>(
-                    'final_balance',
-                    prop(prop('xpub', acc), btcData)
-                  ),
+              balance: xpubBalance(acc).reduce(add, 0),
               baseCoin: coin,
               coin,
               label: prop('label', acc) || prop('xpub', acc),
@@ -85,9 +67,9 @@ export const getAccounts = createDeepEqualSelector(
       // add imported addresses if requested
       if (ownProps?.importedAddresses) {
         accounts = accounts.concat(
-          importedAddresses.map(importedAcc => ({
+          importedAddresses.map((importedAcc) => ({
             address: importedAcc.addr,
-            balance: importedAcc.final_balance,
+            balance: importedAcc.info.final_balance,
             baseCoin: coin,
             coin,
             label: importedAcc.label || importedAcc.addr,
@@ -98,27 +80,16 @@ export const getAccounts = createDeepEqualSelector(
 
       // add trading accounts if requested
       if (ownProps?.tradingAccounts) {
-        accounts = accounts.concat(
-          // @ts-ignore
-          generateTradingAccount(coin, sbBalance)
-        )
+        accounts = accounts.concat(generateTradingAccount(coin, sbBalance))
       }
 
       // add interest accounts if requested
       if (ownProps?.interestAccounts) {
-        accounts = accounts.concat(
-          // @ts-ignore
-          generateInterestAccount(coin, interestBalance)
-        )
+        accounts = accounts.concat(generateInterestAccount(coin, interestBalance))
       }
       return accounts
     }
 
-    return lift(transform)(
-      btcDataR,
-      importedAddressesR,
-      sbBalanceR,
-      interestBalanceR
-    )
+    return lift(transform)(btcDataR, importedAddressesR, sbBalanceR, interestBalanceR)
   }
 )

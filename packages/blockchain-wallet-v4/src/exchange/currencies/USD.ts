@@ -1,20 +1,20 @@
 export default {
-  code: 'USD',
   base: 'CENT',
-  displayName: 'U.S. Dollar',
+  code: 'USD',
+  displayName: 'US Dollar',
   trade: 'USD',
   units: {
     CENT: {
-      rate: '1',
-      symbol: '¢$',
+      currency: 'USD',
       decimal_digits: 0,
-      currency: 'USD'
+      rate: '1',
+      symbol: '¢$'
     },
     USD: {
-      rate: '100',
-      symbol: '$',
+      currency: 'USD',
       decimal_digits: 2,
-      currency: 'USD'
+      rate: '100',
+      symbol: '$'
     }
   }
 }
